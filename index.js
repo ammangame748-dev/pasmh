@@ -19,6 +19,9 @@ app.get('/', (req, res) => {
   res.send('Bot is Alive!');
 });
 
+// هذا السطر اللي ناقصك ومهم جداً لـ UptimeRobot و Render
+const port = process.env.PORT || 10000; 
+app.listen(port, () => console.log(`Listening on port ${port}`));
 
 
 // مخازن مؤقتة للبيانات
@@ -292,6 +295,3 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(process.env.TOKEN);
-const port = process.env.PORT || 8080;
-app.listen(port, () => console.log(`Server is running on port ${port}`));
-
