@@ -109,6 +109,37 @@ client.on('messageCreate', async (message) => {
         message.channel.send("👁️ **تم إظهار القناة.**").then(msg => setTimeout(() => msg.delete(), 100));
     }
 
+    // --- أمر مسح الرسائل السريع (م + عدد) ---
+    if (message.content.startsWith('م')) {
+        // التأكد من أن الشخص لديه صلاحية إدارة الرسائل
+        if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return;
+
+        const amount = parseInt(message.content.slice(1)); // استخراج الرقم من بعد حرف "م"
+
+        // إذا لم يتم وضع رقم صحيح
+        if (isNaN(amount) || amount <= 0) return;
+
+        // الحد الأقصى للمسح دفعة واحدة هو 100
+        if (amount > 100) {
+            return message.reply("⚠️ لا يمكنك مسح أكثر من 100 رسالة.").then(msg => {
+                setTimeout(() => msg.delete(), 100);
+                setTimeout(() => message.delete(), 100);
+            });
+        }
+
+        try {
+            // نمسح عدد الرسائل المطلوبة + رسالة الأمر (م)
+            await message.channel.bulkDelete(amount + 1, true);
+            
+            // إرسال رسالة تأكيد وحذفها بعد 3 ثوانٍ
+            const successMsg = await message.channel.send(`✅ تم تطهير الشات ومسح **${amount}** رسالة.`);
+            setTimeout(() => successMsg.delete().catch(() => {}), 3000);
+        } catch (e) {
+            console.error("خطأ في المسح:", e);
+            message.reply("❌ لا يمكن مسح رسائل قديمة جداً (أكثر من 14 يوم).")
+                .then(msg => setTimeout(() => { msg.delete(); message.delete(); }, 100));
+        }
+    }
 
 });
 
@@ -253,7 +284,6 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(process.env.TOKEN);
-
 const http = require('http');
 http.createServer((req, res) => {
   res.write("I'm alive");
