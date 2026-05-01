@@ -1,7 +1,7 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-    background-color: #050505; /* أسود ملكي */
+    background-color: #080808; /* أسود فخم */
     font-family: 'Cairo', sans-serif;
     color: white;
     height: 100vh;
@@ -10,82 +10,87 @@ body {
     flex-direction: column;
 }
 
-/* الناف بار */
+/* الناف بار واللوجو يمين فوق */
 .navbar {
-    padding: 30px 50px;
+    padding: 25px 40px;
     display: flex;
-    justify-content: flex-start;
+    justify-content: flex-start; /* لليمين لأن الاتجاه RTL */
 }
 
 .logo-container {
     display: flex;
     align-items: center;
-    gap: 15px;
-    opacity: 0.8;
+    gap: 12px;
 }
 
 .mini-logo {
-    width: 40px;
-    height: 40px;
+    width: 45px;
+    height: 45px;
     border-radius: 50%;
     border: 1px solid rgba(255,255,255,0.2);
+    box-shadow: 0 0 15px rgba(255,255,255,0.1);
 }
 
 .nav-name {
-    font-family: 'Orbitron', sans-serif;
-    letter-spacing: 3px;
-    font-size: 1rem;
+    font-weight: bold;
+    letter-spacing: 2px;
+    font-size: 1.1rem;
+    opacity: 0.9;
 }
 
-/* القسم الرئيسي */
+/* القسم الرئيسي في المنتصف */
 .hero {
     flex: 1;
     display: flex;
-    flex-direction: column;
     justify-content: center;
     align-items: center;
     z-index: 10;
 }
 
-.main-title {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 8rem; /* خط ضخم */
-    letter-spacing: 15px;
-    background: linear-gradient(to bottom, #fff, #444);
+.design-box {
+    text-align: center;
+    animation: fadeIn 2s ease-in-out;
+}
+
+.main-text {
+    font-family: 'Reem Kufi', sans-serif; /* خط عربي فخم */
+    font-size: 5rem;
+    background: linear-gradient(45deg, #fff, #888);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    text-shadow: 0 0 50px rgba(255,255,255,0.1);
-    margin-bottom: 40px;
+    text-shadow: 0 10px 30px rgba(255,255,255,0.1);
+    margin-bottom: 10px;
 }
 
-/* الأزرار */
-.btn-group {
-    display: flex;
-    gap: 20px;
+.line {
+    width: 80px;
+    height: 3px;
+    background: #fff;
+    margin: 15px auto;
+    border-radius: 10px;
+    box-shadow: 0 0 20px #fff;
 }
 
-.btn-design {
-    padding: 10px 30px;
-    border: 1px solid rgba(255,255,255,0.1);
-    color: white;
-    text-decoration: none;
-    font-size: 0.9rem;
-    letter-spacing: 1px;
-    transition: 0.4s;
-    background: rgba(255,255,255,0.02);
+.sub-text {
+    font-size: 1.5rem;
+    letter-spacing: 5px;
+    opacity: 0.5;
+    text-transform: uppercase;
 }
 
-.btn-design:hover {
-    background: white;
-    color: black;
-    box-shadow: 0 0 20px white;
-}
-
-/* حركات خلفية خفيفة */
-.background-animation {
+/* هالة ضوئية في الخلفية */
+.bg-glow {
     position: absolute;
-    width: 100%;
-    height: 100%;
-    background: radial-gradient(circle at center, #111 0%, #050505 100%);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(255,255,255,0.03) 0%, transparent 70%);
     z-index: 1;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
 }
