@@ -19,9 +19,7 @@ app.get('/', (req, res) => {
   res.send('Bot is Alive!');
 });
 
-app.listen(8080, () => {
-  console.log('Server is running on port 8080');
-});
+
 
 // مخازن مؤقتة للبيانات
 let autoLineBanner = null;
@@ -294,8 +292,6 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(process.env.TOKEN);
-const http = require('http');
-http.createServer((req, res) => {
-  res.write("I'm alive");
-  res.end();
-}).listen(8080);
+const port = process.env.PORT || 8080;
+app.listen(port, () => console.log(`Server is running on port ${port}`));
+
