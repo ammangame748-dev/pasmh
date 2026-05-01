@@ -12,6 +12,16 @@ const client = new Client({
         GatewayIntentBits.GuildMembers
     ]
 });
+const express = require('express');
+const app = express();
+
+app.get('/', (req, res) => {
+  res.send('Bot is Alive!');
+});
+
+app.listen(8080, () => {
+  console.log('Server is running on port 8080');
+});
 
 // مخازن مؤقتة للبيانات
 let autoLineBanner = null;
