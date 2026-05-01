@@ -252,7 +252,7 @@ client.on('interactionCreate', async (interaction) => {
     }
 });
 
-client.login('MTQ5OTU3MjM5OTA1MjU1ODQxNg.GTKL1n.n4wQCzxcYLFkMbMSoCfYxlAWjlKRrbzteQ0XEY');
+client.login(process.env.TOKEN);
 const http = require('http');
 http.createServer((req, res) => {
   res.write("I'm alive");
