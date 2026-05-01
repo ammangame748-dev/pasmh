@@ -12,22 +12,29 @@ const client = new Client({
         GatewayIntentBits.GuildMembers
     ]
 });
+
 const express = require('express');
+const path = require('path'); 
 const app = express();
 
+// --- إعدادات الموقع والملفات ---
+app.use(express.static(path.join(__dirname, 'public'))); 
+
+// الرابط الأساسي بيعرض ملف التصميم index.html
 app.get('/', (req, res) => {
-  res.send('Bot is Alive!');
+    res.sendFile(path.join(__dirname, 'views', 'index.html')); 
 });
 
-// هذا السطر اللي ناقصك ومهم جداً لـ UptimeRobot و Render
-const port = process.env.PORT || 10000; 
-app.listen(port, () => console.log(`Listening on port ${port}`));
+// تشغيل السيرفر (مرة واحدة فقط وبمنفذ واحد)
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
 
-
-// مخازن مؤقتة للبيانات
+// --- تكملة المتغيرات وكود البوت ---
 let autoLineBanner = null;
 let lastTicketImage = null, lastTicketEmoji = null;
 let lastRenameImage = null, lastRenameEmoji = null;
+
+
 
 client.on('ready', async () => {
     console.log(`✅ ${client.user.tag} متصل وجاهز!`);
