@@ -279,7 +279,7 @@ client.on('interactionCreate', async (interaction) => {
             const buttonsRow = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId('claim_t').setLabel('استلام التذكرة').setStyle(ButtonStyle.Success).setEmoji('📩'),
                 new ButtonBuilder().setCustomId('call_owner').setLabel('نداء العضو').setStyle(ButtonStyle.Primary).setEmoji('🔔'),
-                new ButtonBuilder().setCustomId('close_t').setLabel('إغلاق وتدمير').setStyle(ButtonStyle.Danger).setEmoji('🔒')
+                new ButtonBuilder().setCustomId('close_t').setLabel('إغلاق ').setStyle(ButtonStyle.Danger).setEmoji('🔒')
             );
 
             // منيو الخيارات مع دعم إيموجيات السيرفر
@@ -306,7 +306,7 @@ client.on('interactionCreate', async (interaction) => {
                             value: 'rename_t', 
                             emoji: '1499946069105316032' // <-- ضع هنا ID إيموجي القلم من سيرفرك
                         }
-                        
+
                     ])
             );
 
