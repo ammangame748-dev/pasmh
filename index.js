@@ -13,91 +13,72 @@ const client = new Client({
     ]
 });
 
-// مخازن مؤقتة للبيانات
-let autoLineBanner = null;
-let roleMenuRoles = [];
-let roleMenuMessage = null;
-let lastTicketImage = null, lastTicketEmoji = null;
-let lastRenameImage = null, lastRenameEmoji = null;
 const express = require('express');
+const path = require('path'); 
 const app = express();
 
+// --- إعدادات الموقع والملفات ---
+app.use(express.static(path.join(__dirname, 'public'))); 
+
+// الرابط الأساسي بيعرض ملف التصميم index.html
 app.get('/', (req, res) => {
-  res.send('البوت شغال 24/7 ✅');
+    res.sendFile(path.join(__dirname, 'views', 'index.html')); 
 });
 
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`Web Server is running on port ${port}`);
-});
+// تشغيل السيرفر (مرة واحدة فقط وبمنفذ واحد)
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
+
+// --- تكملة المتغيرات وكود البوت ---
+let autoLineBanner = null;
+let lastTicketImage = null, lastTicketEmoji = null;
+let lastRenameImage = null, lastRenameEmoji = null;
+
+
 
 client.on('ready', async () => {
     console.log(`✅ ${client.user.tag} متصل وجاهز!`);
-
+    
     const commands = [
-
-        {
-            name: 'set-line',
-            description: 'تحديد بنر الخط التلقائي (ارفع صورة)',
-            options: [
-                { name: 'image', description: 'ارفع صورة الخط', type: 11, required: true }
-            ]
+        { 
+            name: 'set-line', 
+            description: 'تحديد بنر الخط التلقائي (ارفع صورة)', 
+            options: [{ name: 'image', description: 'ارفع صورة الخط', type: 11, required: true }] 
         },
-{
-    name: 'role-menu',
-    description: 'إنشاء منيو رتب (8 رتب)',
-    options: [
-        { name: 'role1', type: 8, description: 'الرتبة الأولى', required: true },
-        { name: 'role2', type: 8, description: 'الرتبة الثانية', required: true },
-        { name: 'role3', type: 8, description: 'الرتبة الثالثة', required: true },
-        { name: 'role4', type: 8, description: 'الرتبة الرابعة', required: true },
-        { name: 'role5', type: 8, description: 'الرتبة الخامسة', required: true },
-        { name: 'role6', type: 8, description: 'الرتبة السادسة', required: true },
-        { name: 'role7', type: 8, description: 'الرتبة السابعة', required: true },
-        { name: 'role8', type: 8, description: 'الرتبة الثامنة', required: true },
-        { name: 'title', type: 3, description: 'عنوان الإيمباد', required: false }
-    ]
-},
-        {
-            name: 'setup-ticket',
-            description: 'إعداد بانل التذاكر (منيو)',
+        { 
+            name: 'setup-ticket', 
+            description: 'إعداد بانل التذاكر (منيو)', 
             options: [
-                { name: 'image', description: 'ارفع صورة للبانل', type: 11, required: true },
+                { name: 'image', description: 'ارفع صورة للبانل', type: 11, required: true }, 
                 { name: 'emoji_id', description: 'ضع ID الإيموجي للمنيو', type: 3, required: true }
-            ]
+            ] 
         },
-
-        {
-            name: 'setup-rename',
-            description: 'إعداد قائمة تغيير الأسماء (منيو)',
+        { 
+            name: 'setup-rename', 
+            description: 'إعداد قائمة تغيير الأسماء (منيو)', 
             options: [
-                { name: 'image', description: 'ارفع صورة للإيمباد', type: 11, required: true },
+                { name: 'image', description: 'ارفع صورة للإيمباد', type: 11, required: true }, 
                 { name: 'emoji', description: 'ضع الإيموجي للمنيو', type: 3, required: true }
-            ]
+            ] 
         },
-
-        {
-            name: 'ban',
-            description: 'طرد نهائي (باند)',
+        { 
+            name: 'ban', 
+            description: 'طرد نهائي (باند)', 
             options: [
-                { name: 'user', description: 'العضو المراد حظره', type: 6, required: true },
+                { name: 'user', description: 'العضو المراد حظره', type: 6, required: true }, 
                 { name: 'reason', description: 'سبب الحظر', type: 3, required: false }
-            ]
+            ] 
         },
-
-        {
-            name: 'timeout',
-            description: 'تايم آوت',
+        { 
+            name: 'timeout', 
+            description: 'تايم آوت', 
             options: [
-                { name: 'user', description: 'العضو المراد إعطاؤه وقت', type: 6, required: true },
+                { name: 'user', description: 'العضو المراد إعطاؤه وقت', type: 6, required: true }, 
                 { name: 'duration', description: 'المدة بالدقائق', type: 4, required: true }
-            ]
+            ] 
         }
-
     ];
-
     await client.application.commands.set(commands);
-
 });
 
 // منع الكراش
@@ -186,43 +167,7 @@ client.on('interactionCreate', async (interaction) => {
             autoLineBanner = interaction.options.getAttachment('image').url;
             await interaction.reply({ content: "✅ تم حفظ البنر بنجاح!", ephemeral: true });
         }
-if (interaction.commandName === 'role-menu') {
 
-    roleMenuRoles = [
-    interaction.options.getRole('role1'),
-    interaction.options.getRole('role2'),
-    interaction.options.getRole('role3'),
-    interaction.options.getRole('role4'),
-    interaction.options.getRole('role5'),
-    interaction.options.getRole('role6'),
-    interaction.options.getRole('role7'),
-    interaction.options.getRole('role8'),
-];
-
-    const title = interaction.options.getString('title') || 'Role Menu';
-
-    const menu = new StringSelectMenuBuilder()
-    .setCustomId('role_menu_select')
-    .setPlaceholder('اختر رتبتك')
-    .addOptions(
-        roleMenuRoles.map(role => ({
-            label: role.name,   // 👈 اسم الرتبة الحقيقي
-            value: role.id
-        }))
-    );
-
-    const row = new ActionRowBuilder().addComponents(menu);
-
-    const embed = new EmbedBuilder()
-        .setTitle(title)
-        .setDescription('اختر الرتبة من القائمة')
-        .setColor('Blue');
-
-    await interaction.reply({
-        embeds: [embed],
-        components: [row]
-    });
-}
         if (interaction.commandName === 'setup-ticket') {
             lastTicketImage = interaction.options.getAttachment('image').url;
             lastTicketEmoji = interaction.options.getString('emoji_id');
@@ -303,13 +248,16 @@ if (interaction.commandName === 'role-menu') {
 
     if (interaction.isStringSelectMenu()) {
         if (interaction.customId === 'open_t_menu') {
-            const ch = await interaction.guild.channels.create({ 
-                name: `ticket-${interaction.user.username}`,
-                permissionOverwrites: [
-                    { id: interaction.guild.id, deny: [PermissionFlagsBits.ViewChannel] },
-                    { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
-                ],
-            });
+            const SUPPORT_ROLE_ID = "1499531284978995351";
+
+const ch = await interaction.guild.channels.create({ 
+    name: `ticket-${interaction.user.username}`,
+    permissionOverwrites: [
+        { id: interaction.guild.id, deny: [PermissionFlagsBits.ViewChannel] },
+        { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
+        { id: SUPPORT_ROLE_ID, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
+    ],
+});
             await interaction.reply({ content: `تذكرتك: ${ch}`, ephemeral: true });
 
             const eb = new EmbedBuilder().setTitle("🎫 تذكرة جديدة").setDescription(`مرحباً ${interaction.user}`).setColor("Green");
@@ -330,31 +278,7 @@ if (interaction.commandName === 'role-menu') {
             );
             await ch.send({ embeds: [eb], components: [r1, r2] });
         }
-if (interaction.customId === 'role_menu_select') {
 
-    const member = interaction.member;
-    const newRoleId = interaction.values[0];
-
-    // نحول كل الرتب إلى IDs بشكل مضمون
-    const roleIds = roleMenuRoles.map(r => r.id);
-
-    // نشيل أي رتبة موجودة من رتب المنيو
-    const rolesToRemove = member.roles.cache.filter(role =>
-        roleIds.includes(role.id)
-    );
-
-    if (rolesToRemove.size > 0) {
-        await member.roles.remove(rolesToRemove);
-    }
-
-    // نضيف الرتبة الجديدة
-    await member.roles.add(newRoleId);
-
-    await interaction.reply({
-        content: 'تم تحديث رتبتك بنجاح',
-        ephemeral: true
-    });
-}
         if (interaction.customId === 'rename_select') {
             const modal = new ModalBuilder().setCustomId('actual_name_change').setTitle('تغيير الاسم');
             modal.addComponents(new ActionRowBuilder().addComponents(
