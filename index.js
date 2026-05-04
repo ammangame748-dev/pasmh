@@ -1,4 +1,4 @@
-زconst { 
+const { 
     Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, 
     ButtonStyle, PermissionFlagsBits, ModalBuilder, TextInputBuilder, 
     TextInputStyle, StringSelectMenuBuilder, InteractionType 
