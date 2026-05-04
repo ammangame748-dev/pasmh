@@ -1,4 +1,4 @@
-const { 
+زconst { 
     Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, 
     ButtonStyle, PermissionFlagsBits, ModalBuilder, TextInputBuilder, 
     TextInputStyle, StringSelectMenuBuilder, InteractionType 
@@ -230,10 +230,27 @@ client.on('interactionCreate', async (interaction) => {
             } catch (e) { await interaction.reply({ content: "❌ لا أستطيع تغيير اسمك!", ephemeral: true }); }
         }
 
-        if (interaction.customId === 'modal_rename_ch') {
-            await interaction.channel.setName(interaction.fields.getTextInputValue('new_ch_name'));
-            await interaction.reply({ content: `✅ تم تغيير اسم التذكرة`, ephemeral: true });
-        }
+       // ابحث عن هذا الجزء داخل ModalSubmit واستبدله بهذا
+if (interaction.customId === 'modal_rename_t') {
+    const newName = interaction.fields.getTextInputValue('new_ch_name');
+    
+    try {
+        // تغيير اسم القناة الفعلي
+        await interaction.channel.setName(newName);
+        
+        await interaction.reply({ 
+            content: `✅ تم تغيير اسم التذكرة إلى: **${newName}**`, 
+            ephemeral: true 
+        });
+    } catch (error) {
+        console.error(error);
+        await interaction.reply({ 
+            content: "❌ حدث خطأ أثناء محاولة تغيير اسم القناة. (قد يكون بسبب قيود Rate Limit من ديسكورد)", 
+            ephemeral: true 
+        });
+    }
+}
+
         if (interaction.customId === 'modal_add_user') {
             const id = interaction.fields.getTextInputValue('user_id');
             await interaction.channel.permissionOverwrites.create(id, { ViewChannel: true, SendMessages: true });
