@@ -1,4 +1,4 @@
-const { 
+\const { 
     Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, 
     ButtonStyle, PermissionFlagsBits, ModalBuilder, TextInputBuilder, 
     TextInputStyle, StringSelectMenuBuilder, InteractionType 
@@ -246,62 +246,132 @@ client.on('interactionCreate', async (interaction) => {
         }
     }
 
-    if (interaction.isStringSelectMenu()) {
-        if (interaction.customId === 'open_t_menu') {
-            const SUPPORT_ROLE_ID = "1499531284978995351";
+   if (interaction.isStringSelectMenu()) {
+    // --- نظام فتح التذكرة الاحترافي ---
+    if (interaction.customId === 'open_t_menu') {
+        const SUPPORT_ROLE_ID = "1499531284978995351"; // رتبة الدعم
 
-const ch = await interaction.guild.channels.create({ 
-    name: `ticket-${interaction.user.username}`,
-    permissionOverwrites: [
-        { id: interaction.guild.id, deny: [PermissionFlagsBits.ViewChannel] },
-        { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
-        { id: SUPPORT_ROLE_ID, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
-    ],
-});
-            await interaction.reply({ content: `تذكرتك: ${ch}`, ephemeral: true });
+        try {
+            // إنشاء القناة مع صلاحيات كاملة تضمن ظهور كل شيء للكل
+            const ch = await interaction.guild.channels.create({ 
+                name: `ticket-${interaction.user.username}`,
+                permissionOverwrites: [
+                    { id: interaction.guild.id, deny: [PermissionFlagsBits.ViewChannel] },
+                    { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.AttachFiles] },
+                    { id: SUPPORT_ROLE_ID, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.AttachFiles] },
+                ],
+            });
 
-            const eb = new EmbedBuilder().setTitle("🎫 تذكرة جديدة").setDescription(`مرحباً ${interaction.user}`).setColor("Green");
-            if (lastTicketImage) eb.setImage(lastTicketImage);
+            await interaction.reply({ content: `✅ **تم إنشاء تذكرتك بنجاح:** ${ch}`, ephemeral: true });
 
-            const r1 = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId('claim_t').setLabel('استلام').setStyle(ButtonStyle.Success),
-                new ButtonBuilder().setCustomId('close_t').setLabel('إغلاق').setStyle(ButtonStyle.Danger),
-                new ButtonBuilder().setCustomId('call_owner').setLabel('منشن صاحبها').setStyle(ButtonStyle.Secondary)
+            // إيمباد التذكرة من الداخل
+            const ticketEmbed = new EmbedBuilder()
+                .setAuthor({ name: `نظام التذاكر | ${interaction.guild.name}`, iconURL: interaction.guild.iconURL() })
+                .setTitle("🎫 تذكرة دعم فني جديدة")
+                .setDescription(`أهلاً بك ${interaction.user}\nالرجاء كتابة استفسارك وانتظار طاقم الإدارة للرد عليك.\n\n**استخدم القائمة أدناه للتحكم في التذكرة.**`)
+                .setColor("#2f3136") // لون دارك فخم
+                .setTimestamp()
+                .setFooter({ text: "نظام إدارة التذاكر الاحترافي", iconURL: interaction.user.displayAvatarURL() });
+
+            if (lastTicketImage) ticketEmbed.setImage(lastTicketImage);
+
+            // أزرار التحكم السريعة
+            const buttonsRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('claim_t').setLabel('استلام التذكرة').setStyle(ButtonStyle.Success).setEmoji('📩'),
+                new ButtonBuilder().setCustomId('call_owner').setLabel('نداء العضو').setStyle(ButtonStyle.Primary).setEmoji('🔔'),
+                new ButtonBuilder().setCustomId('close_t').setLabel('إغلاق وتدمير').setStyle(ButtonStyle.Danger).setEmoji('🔒')
             );
 
-            const r2 = new ActionRowBuilder().addComponents(
-                new StringSelectMenuBuilder().setCustomId('ticket_actions').setPlaceholder('خيارات التذكرة').addOptions([
-                    { label: 'إضافة شخص', value: 'add_user', emoji: '➕' },
-                    { label: 'إزالة شخص', value: 'remove_user', emoji: '➖' },
-                    { label: 'تغيير اسم', value: 'rename_t', emoji: '📝' }
-                ])
+            // منيو الخيارات مع دعم إيموجيات السيرفر
+            const actionMenu = new ActionRowBuilder().addComponents(
+                new StringSelectMenuBuilder()
+                    .setCustomId('ticket_actions')
+                    .setPlaceholder('⚙️ إعدادات وخيارات إضافية...')
+                    .addOptions([
+                        { 
+                            label: 'إضافة عضو', 
+                            description: 'إضافة شخص لمشاهدة التذكرة', 
+                            value: 'add_user', 
+                            emoji: '123456789012345678' // <-- ضع هنا ID إيموجي الزائد من سيرفرك
+                        },
+                        { 
+                            label: 'إزالة عضو', 
+                            description: 'إزالة شخص من التذكرة', 
+                            value: 'remove_user', 
+                            emoji: '123456789012345678' // <-- ضع هنا ID إيموجي الناقص من سيرفرك
+                        },
+                        { 
+                            label: 'إعادة تسمية', 
+                            description: 'تغيير اسم روم التذكرة', 
+                            value: 'rename_t', 
+                            emoji: '123456789012345678' // <-- ضع هنا ID إيموجي القلم من سيرفرك
+                        }
+                    ])
             );
-            await ch.send({ embeds: [eb], components: [r1, r2] });
-        }
 
-        if (interaction.customId === 'rename_select') {
-            const modal = new ModalBuilder().setCustomId('actual_name_change').setTitle('تغيير الاسم');
-            modal.addComponents(new ActionRowBuilder().addComponents(
-                new TextInputBuilder().setCustomId('new_name').setLabel("اكتب اسمك الجديد").setStyle(TextInputStyle.Short)
-            ));
-            await interaction.showModal(modal);
-        }
+            // إرسال الرسالة ومنشن الدعم
+            await ch.send({ 
+                content: `||${interaction.user} & <@&${SUPPORT_ROLE_ID}>||`, 
+                embeds: [ticketEmbed], 
+                components: [buttonsRow, actionMenu] 
+            });
 
-        if (interaction.customId === 'ticket_actions') {
-            const act = interaction.values[0];
-            const modal = new ModalBuilder().setCustomId(`modal_${act}`).setTitle('إجراء التذكرة');
-            modal.addComponents(new ActionRowBuilder().addComponents(
-                new TextInputBuilder().setCustomId(act === 'rename_t' ? 'new_ch_name' : 'user_id').setLabel(act === 'rename_t' ? "الاسم الجديد" : "ID العضو").setStyle(TextInputStyle.Short)
-            ));
-            await interaction.showModal(modal);
+        } catch (error) {
+            console.error(error);
+            await interaction.reply({ content: "❌ حدث خطأ أثناء إنشاء التذكرة، تأكد من صلاحيات البوت.", ephemeral: true });
         }
     }
 
-    if (interaction.isButton()) {
-        if (interaction.customId === 'claim_t') await interaction.reply(`✅ تم الاستلام بواسطة: ${interaction.user}`);
-        if (interaction.customId === 'close_t') { await interaction.reply("جاري الحذف..."); setTimeout(() => interaction.channel.delete().catch(() => {}), 3000); }
-        if (interaction.customId === 'call_owner') await interaction.reply(`🔔 ننتظر حضور صاحب التذكرة!`);
+    // --- نظام تغيير الاسم المستعار ---
+    if (interaction.customId === 'rename_select') {
+        const modal = new ModalBuilder().setCustomId('actual_name_change').setTitle('تغيير الاسم المستعار');
+        modal.addComponents(new ActionRowBuilder().addComponents(
+            new TextInputBuilder()
+                .setCustomId('new_name')
+                .setLabel("الاسم الجديد")
+                .setPlaceholder("اكتب اسمك الجديد هنا...")
+                .setMinLength(2)
+                .setMaxLength(32)
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true)
+        ));
+        await interaction.showModal(modal);
     }
+
+    // --- معالجة خيارات المنيو داخل التذكرة ---
+    if (interaction.customId === 'ticket_actions') {
+        const action = interaction.values[0];
+        const titles = { 'add_user': 'إضافة عضو', 'remove_user': 'إزالة عضو', 'rename_t': 'تغيير اسم التذكرة' };
+        const labels = { 'add_user': 'ID العضو المراد إضافته', 'remove_user': 'ID العضو المراد إزالته', 'rename_t': 'الاسم الجديد للقناة' };
+
+        const modal = new ModalBuilder().setCustomId(`modal_${action}`).setTitle(titles[action]);
+        modal.addComponents(new ActionRowBuilder().addComponents(
+            new TextInputBuilder()
+                .setCustomId(action === 'rename_t' ? 'new_ch_name' : 'user_id')
+                .setLabel(labels[action])
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true)
+        ));
+        await interaction.showModal(modal);
+    }
+}
+
+// --- نظام الأزرار التفاعلي ---
+if (interaction.isButton()) {
+    if (interaction.customId === 'claim_t') {
+        await interaction.reply({ content: `👨‍💻 التذكرة الآن تحت إشراف: ${interaction.user}` });
+        // تعطيل زر الاستلام بعد الضغط عليه ليكون احترافي أكثر
+    }
+    
+    if (interaction.customId === 'close_t') {
+        await interaction.reply({ content: "⚠️ سيتم إغلاق التذكرة وحذف القناة خلال **5 ثوانٍ**..." });
+        setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
+    }
+
+    if (interaction.customId === 'call_owner') {
+        await interaction.reply({ content: `🔔 نداء إلى صاحب التذكرة، يرجى التواجد! <@${interaction.channel.name.split('-')[1]}>` });
+    }
+}
 });
 
 client.login(process.env.TOKEN);
