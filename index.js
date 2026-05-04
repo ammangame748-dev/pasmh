@@ -1,4 +1,4 @@
-\const { 
+const { 
     Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, 
     ButtonStyle, PermissionFlagsBits, ModalBuilder, TextInputBuilder, 
     TextInputStyle, StringSelectMenuBuilder, InteractionType 
@@ -117,14 +117,14 @@ client.on('messageCreate', async (message) => {
         if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) return;
         await message.channel.permissionOverwrites.edit(message.guild.id, { ViewChannel: false });
         await message.delete().catch(() => {});
-        message.channel.send("👻 **تم إخفاء القناة.**").then(msg => setTimeout(() => msg.delete(), 100));
+        message.channel.send(" **تم إخفاء القناة.**").then(msg => setTimeout(() => msg.delete(), 100));
     }
 
     if (message.content === 'ih') {
         if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) return;
         await message.channel.permissionOverwrites.edit(message.guild.id, { ViewChannel: true });
         await message.delete().catch(() => {});
-        message.channel.send("👁️ **تم إظهار القناة.**").then(msg => setTimeout(() => msg.delete(), 100));
+        message.channel.send(" **تم إظهار القناة.**").then(msg => setTimeout(() => msg.delete(), 100));
     }
 
     // --- أمر مسح الرسائل السريع (م + عدد) ---
@@ -139,7 +139,7 @@ client.on('messageCreate', async (message) => {
 
         // الحد الأقصى للمسح دفعة واحدة هو 100
         if (amount > 100) {
-            return message.reply("⚠️ لا يمكنك مسح أكثر من 100 رسالة.").then(msg => {
+            return message.reply("لا يمكنك مسح أكثر من 100 رسالة.").then(msg => {
                 setTimeout(() => msg.delete(), 100);
                 setTimeout(() => message.delete(), 100);
             });
@@ -292,20 +292,21 @@ client.on('interactionCreate', async (interaction) => {
                             label: 'إضافة عضو', 
                             description: 'إضافة شخص لمشاهدة التذكرة', 
                             value: 'add_user', 
-                            emoji: '123456789012345678' // <-- ضع هنا ID إيموجي الزائد من سيرفرك
+                            emoji: '1499946224017477835' // <-- ضع هنا ID إيموجي الزائد من سيرفرك
                         },
                         { 
                             label: 'إزالة عضو', 
                             description: 'إزالة شخص من التذكرة', 
                             value: 'remove_user', 
-                            emoji: '123456789012345678' // <-- ضع هنا ID إيموجي الناقص من سيرفرك
+                            emoji: '1499946247010652170' // <-- ضع هنا ID إيموجي الناقص من سيرفرك
                         },
                         { 
                             label: 'إعادة تسمية', 
                             description: 'تغيير اسم روم التذكرة', 
                             value: 'rename_t', 
-                            emoji: '123456789012345678' // <-- ضع هنا ID إيموجي القلم من سيرفرك
+                            emoji: '1499946069105316032' // <-- ضع هنا ID إيموجي القلم من سيرفرك
                         }
+                        
                     ])
             );
 
