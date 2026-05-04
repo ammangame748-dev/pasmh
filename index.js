@@ -341,6 +341,11 @@ client.on('interactionCreate', async (interaction) => {
 
     // --- معالجة خيارات المنيو داخل التذكرة ---
     if (interaction.customId === 'ticket_actions') {
+        // التحقق من صلاحية الأدمن
+        if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+            return interaction.reply({ content: "❌ عذراً، هذه الخيارات مخصصة للإدارة فقط.", ephemeral: true });
+        }
+
         const action = interaction.values[0];
         const titles = { 'add_user': 'إضافة عضو', 'remove_user': 'إزالة عضو', 'rename_t': 'تغيير اسم التذكرة' };
         const labels = { 'add_user': 'ID العضو المراد إضافته', 'remove_user': 'ID العضو المراد إزالته', 'rename_t': 'الاسم الجديد للقناة' };
@@ -355,24 +360,33 @@ client.on('interactionCreate', async (interaction) => {
         ));
         await interaction.showModal(modal);
     }
+
 }
 
 // --- نظام الأزرار التفاعلي ---
 if (interaction.isButton()) {
+    // التحقق من الأدمن للأزرار الحساسة (الاستلام والإغلاق)
+    if (interaction.customId === 'claim_t' || interaction.customId === 'close_t') {
+        if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+            return interaction.reply({ content: "❌ هذه الأزرار مخصصة للإدارة فقط.", ephemeral: true });
+        }
+    }
+
     if (interaction.customId === 'claim_t') {
-        await interaction.reply({ content: `👨‍💻 التذكرة الآن تحت إشراف: ${interaction.user}` });
-        // تعطيل زر الاستلام بعد الضغط عليه ليكون احترافي أكثر
+        await interaction.reply({ content: `التذكرة الآن تحت إشراف: ${interaction.user}` });
     }
     
     if (interaction.customId === 'close_t') {
-        await interaction.reply({ content: "⚠️ سيتم إغلاق التذكرة وحذف القناة خلال **5 ثوانٍ**..." });
+        await interaction.reply({ content: " سيتم إغلاق التذكرة وحذف القناة خلال **5 ثوانٍ**..." });
         setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
     }
 
     if (interaction.customId === 'call_owner') {
-        await interaction.reply({ content: `🔔 نداء إلى صاحب التذكرة، يرجى التواجد! <@${interaction.channel.name.split('-')[1]}>` });
+        // هذا الزر مسموح للكل استخدامه (المنشن لصاحب التذكرة)
+        await interaction.reply({ content: ` نداء إلى صاحب التذكرة، يرجى التواجد! <@${interaction.channel.name.split('-')[1]}>` });
     }
 }
+
 });
 
 client.login(process.env.TOKEN);
