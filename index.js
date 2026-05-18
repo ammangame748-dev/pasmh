@@ -234,12 +234,16 @@ client.on('interactionCreate', async (interaction) => {
             return interaction.reply({ content: "تم النشر", ephemeral: true });
         }
 
-        // rename channel
-        if (interaction.customId === 'modal_rename_t') {
-            const name = interaction.fields.getTextInputValue('name');
-            await interaction.channel.setName(name);
-            return interaction.reply({ content: "تم التغيير", ephemeral: true });
-        }
+        // rename channel -> تم تحويله إلى تغيير لقب العضو داخل السيرفر
+if (interaction.customId === 'modal_rename_t') {
+    const name = interaction.fields.getTextInputValue('name');
+
+    // تغيير لقب العضو الذي أرسل النموذج داخل السيرفر الحالي
+    await interaction.member.setNickname(name).catch(err => console.error("فشل تغيير اللقب بسبب الصلاحيات:", err));
+
+    return interaction.reply({ content: `✅ تم تغيير اسمك في السيرفر إلى: **${name}**`, ephemeral: true });
+}
+
     }
 
     // ================= SELECT MENU =================
