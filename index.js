@@ -12,7 +12,7 @@ const {
     TextInputBuilder,
     TextInputStyle,
     StringSelectMenuBuilder,
-    InteractionType
+    ChannelType // 1. تم إضافة استدعاء نوع القناة هنا
 } = require('discord.js');
 
 const express = require('express');
@@ -24,13 +24,15 @@ const app = express();
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/', (req, res) => {
+    // تلميح أمان: تأكد من وجود مجلد views وملف index.html حتى لا يظهر خطأ
     res.sendFile(path.join(__dirname, 'views', 'index.html'));
 });
 
 app.use((req, res) => res.status(404).send("Not Found"));
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🌐 Server running on ${PORT}`));
+// تم إضافة '0.0.0.0' لضمان قبول الاتصالات الخارجية على سيرفر Render دون مشاكل تجميد
+app.listen(PORT, '0.0.0.0', () => console.log(`🌐 Server running on port ${PORT}`));
 
 // ================= DISCORD CLIENT =================
 const client = new Client({
@@ -82,7 +84,6 @@ const commands = [
 // ================= READY =================
 client.on('ready', async () => {
     console.log(`🤖 Logged in as ${client.user.tag}`);
-
     await client.application.commands.set(commands);
 });
 
@@ -104,7 +105,6 @@ client.on('messageCreate', async (message) => {
         await message.channel.permissionOverwrites.edit(message.guild.id, {
             SendMessages: false
         });
-
         await message.delete().catch(() => { });
         message.channel.send("🔒 تم القفل").then(m => setTimeout(() => m.delete(), 3000));
     }
@@ -114,7 +114,6 @@ client.on('messageCreate', async (message) => {
         await message.channel.permissionOverwrites.edit(message.guild.id, {
             SendMessages: true
         });
-
         await message.delete().catch(() => { });
         message.channel.send("🔓 تم الفتح").then(m => setTimeout(() => m.delete(), 3000));
     }
@@ -123,9 +122,7 @@ client.on('messageCreate', async (message) => {
     if (message.content.startsWith('م')) {
         const amount = parseInt(message.content.slice(1));
         if (!amount || amount <= 0) return;
-
         if (amount > 100) return message.reply("max 100");
-
         await message.channel.bulkDelete(amount + 1, true).catch(() => { });
     }
 });
@@ -135,7 +132,6 @@ client.on('interactionCreate', async (interaction) => {
 
     // ================= SLASH =================
     if (interaction.isChatInputCommand()) {
-
         if (interaction.commandName === 'set-line') {
             autoLineBanner = interaction.options.getAttachment('image').url;
             return interaction.reply({ content: "✅ تم حفظ الخط", ephemeral: true });
@@ -157,7 +153,6 @@ client.on('interactionCreate', async (interaction) => {
                         .setStyle(TextInputStyle.Paragraph)
                 )
             );
-
             return interaction.showModal(modal);
         }
 
@@ -177,17 +172,14 @@ client.on('interactionCreate', async (interaction) => {
                         .setStyle(TextInputStyle.Paragraph)
                 )
             );
-
             return interaction.showModal(modal);
         }
     }
 
     // ================= MODALS =================
     if (interaction.isModalSubmit()) {
-
         // ticket panel
         if (interaction.customId === 'ticket_modal') {
-
             const embed = new EmbedBuilder()
                 .setDescription(interaction.fields.getTextInputValue('msg'))
                 .setColor('Blue');
@@ -211,16 +203,16 @@ client.on('interactionCreate', async (interaction) => {
                 embeds: [embed],
                 components: [menu]
             });
-
             return interaction.reply({ content: "تم النشر", ephemeral: true });
         }
 
         // rename panel
         if (interaction.customId === 'rename_modal') {
-
             const embed = new EmbedBuilder()
                 .setDescription(interaction.fields.getTextInputValue('msg'))
                 .setColor('Purple');
+
+            if (lastRenameImage) embed.setImage(lastRenameImage); // إضافة الصورة إذا وجدت للرينيم أيضاً
 
             const menu = new ActionRowBuilder().addComponents(
                 new StringSelectMenuBuilder()
@@ -239,28 +231,25 @@ client.on('interactionCreate', async (interaction) => {
                 embeds: [embed],
                 components: [menu]
             });
-
             return interaction.reply({ content: "تم النشر", ephemeral: true });
         }
 
         // rename channel
         if (interaction.customId === 'modal_rename_t') {
             const name = interaction.fields.getTextInputValue('name');
-
             await interaction.channel.setName(name);
-
             return interaction.reply({ content: "تم التغيير", ephemeral: true });
         }
     }
 
     // ================= SELECT MENU =================
     if (interaction.isStringSelectMenu()) {
-
         // open ticket
         if (interaction.customId === 'open_ticket') {
-
+            // 2. إصلاح دمج الأكواد وإضافة نوع القناة GuildText الضروري للإصدار v14
             const channel = await interaction.guild.channels.create({
                 name: `ticket-${interaction.user.username}`,
+                type: ChannelType.GuildText, 
                 permissionOverwrites: [
                     {
                         id: interaction.guild.id,
@@ -281,7 +270,6 @@ client.on('interactionCreate', async (interaction) => {
 
         // rename modal trigger
         if (interaction.customId === 'rename_menu') {
-
             const modal = new ModalBuilder()
                 .setCustomId('modal_rename_t')
                 .setTitle('Rename');
@@ -294,7 +282,6 @@ client.on('interactionCreate', async (interaction) => {
                         .setStyle(TextInputStyle.Short)
                 )
             );
-
             return interaction.showModal(modal);
         }
     }
