@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>إعدادات الماب والأزرار</title>
+    <style>
+        body { background-color: #030712; color: #f3f4f6; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 40px; }
+        .wrapper { max-w: 950px; margin: 0 auto; background-color: #0f172a; border: 1px solid #1e293b; padding: 45px; border-radius: 32px; box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6); }
+        .back-link { color: #818cf8; text-decoration: none; font-weight: 700; display: inline-block; margin-bottom: 25px; transition: 0.2s; }
+        .back-link:hover { color: #6366f1; text-shadow: 0 0 8px rgba(99,102,241,0.4); }
+        h2 { color: #4f46e5; font-size: 28px; font-weight: 900; margin-top: 0; margin-bottom: 35px; border-bottom: 1px solid #1e293b; padding-bottom: 20px; text-shadow: 0 0 10px rgba(79,70,229,0.2); }
+        .form-group { margin-bottom: 25px; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-bottom: 25px; }
+        label { font-size: 14px; font-weight: 700; color: #94a3b8; margin-bottom: 10px; display: block; }
+        input[type="text"], textarea { width: 100%; background-color: #020617; border: 1px solid #334155; border-radius: 16px; padding: 14px; color: #f8fafc; font-size: 15px; box-sizing: border-box; transition: 0.3s; }
+        input[type="text"]:focus, textarea:focus { border-color: #6366f1; outline: none; box-shadow: 0 0 12px rgba(99, 102, 241, 0.3); }
+        input[type="file"] { width: 100%; background-color: #020617; border: 1px solid #334155; padding: 14px; border-radius: 16px; color: #94a3b8; box-sizing: border-box; }
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-top: 35px; }
+        .btn-card { background-color: #1e293b; border: 1px solid #334155; padding: 25px; border-radius: 24px; position: relative; box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
+        .btn-badge { background: linear-gradient(135deg, #312e81, #4f46e5); color: #e0e7ff; font-size: 12px; font-weight: 800; padding: 5px 10px; border-radius: 8px; position: absolute; top: 15px; left: 15px; }
+        .submit-btn { width: 100%; background: linear-gradient(135deg, #4f46e5, #6366f1); color: #fff; border: none; font-size: 19px; font-weight: 800; padding: 18px; border-radius: 20px; cursor: pointer; margin-top: 45px; transition: 0.3s; box-shadow: 0 10px 25px rgba(79, 70, 229, 0.4); }
+        .submit-btn:hover { background: linear-gradient(135deg, #4338ca, #4f46e5); transform: translateY(-2px); box-shadow: 0 15px 30px rgba(79, 70, 229, 0.6); }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <a href="/dashboard" class="back-link">← العودة للرئيسية</a>
+        <h2>⚙️ لوحة إعداد الماب والـ 6 أزرار</h2>
+        
+        <form action="/dashboard/<%= guildId %>/save" method="POST" enctype="multipart/form-data">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>ID روم الإرسال داخل السيرفر (Channel ID):</label>
+                    <input type="text" name="channelId" value="<%= settings.channelId %>" >
+                </div>
+                <div class="form-group">
+                    <label>عنوان الماب الرئيسي (Title):</label>
+                    <input type="text" name="title" value="<%= settings.title %>" >
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>وصف الماب وشرح القوانين (Description):</label>
+                <textarea name="description" rows="4" ><%= settings.description %></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>رفع صورة رئيسية للماب مباشرة من ملفات جهازك:</label>
+                <input type="file" name="image">
+            </div>
+
+            <h3 style="color: #818cf8; margin-top: 45px; margin-bottom: 20px; font-size: 20px; font-weight: 800;">🔲 برمجة الـ 6 أزرار (الردود ستكون داخل إيمباد مخفي)</h3>
+            <div class="btn-grid">
+                <% for(let i=0; i<6; i++) { %>
+                    <div class="btn-card">
+                        <span class="btn-badge">الزر رقم <%= i+1 %></span>
+                        <div class="form-group" style="margin-top: 20px;">
+                            <label>اسم الزر المكتوب:</label>
+                            <input type="text" name="btn_label_<%= i %>" value="<%= settings.buttons[i] ? settings.buttons[i].label : '' %>" >
+                        </div>
+                        <div class="form-group">
+                            <label>ID الإيموجي للزر (اختياري):</label>
+                            <input type="text" name="btn_emoji_<%= i %>" value="<%= settings.buttons[i] ? settings.buttons[i].emoji : '' %>" placeholder="أدخل أيدي الايموجي">
+                        </div>
+                        <div class="form-group">
+                            <label>الرد الخاص المخفي (يظهر داخل Embed للعضو فقط):</label>
+                            <textarea name="btn_reply_<%= i %>" rows="3" placeholder="اكتب النص الذي سيظهر داخل الإيمباد المخفي..."><%= settings.buttons[i] ? settings.buttons[i].reply : '' %></textarea>
+                        </div>
+                    </div>
+                <% } %>
+            </div>
+
+            <button type="submit" class="submit-btn">حفظ وتحديث الماب والأزرار بالسيرفر فوراً 🚀</button>
+        </form>
+    </div>
+</body>
+</html>
