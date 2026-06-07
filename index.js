@@ -180,6 +180,10 @@ app.get('/logout', (req, res) => {
     req.session.destroy();
     res.redirect('/login');
 });
+// إضافة مسار الصفحة الرئيسية لتحويل المستخدم تلقائياً لصفحة تسجيل الدخول
+app.get('/', (req, res) => {
+    res.redirect('/login');
+});
 
 // التفاعل مع الأزرار والرد المخفي المخفي (Ephemeral)
 bot.on('interactionCreate', async interaction => {
