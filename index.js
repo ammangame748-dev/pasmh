@@ -40,9 +40,9 @@ passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((obj, done) => done(null, obj));
 
 passport.use(new DiscordStrategy({
-    clientID: process.env.CLIENT_ID,         // معرف البوت من موقع المطورين
-    clientSecret: process.env.CLIENT_SECRET, // السر الخاص بالبوت من موقع المطورين
-    callbackURL: process.env.CALLBACK_URL,   // رابط العودة مثل http://localhost:10000/auth/discord/callback
+    clientID: process.env.CLIENT_ID,         
+    clientSecret: process.env.CLIENT_SECRET, 
+    callbackURL: process.env.CALLBACK_URL,   
     scope: ['identify', 'guilds']
 }, (accessToken, refreshToken, profile, done) => {
     return done(null, profile);
@@ -94,7 +94,6 @@ app.get('/', (req, res) => {
 
 // صفحة لوحة التحكم وتحديد السيرفر
 app.get('/dashboard', checkAuth, (req, res) => {
-    // تصفية السيرفرات التي يمتلك فيها المستخدم صلاحية Administrator (0x8)
     const adminGuilds = req.user.guilds.filter(guild => (guild.permissions & 0x8) === 0x8);
     const selectedGuildId = req.query.guildId || (adminGuilds[0] ? adminGuilds[0].id : null);
 
@@ -102,7 +101,6 @@ app.get('/dashboard', checkAuth, (req, res) => {
         return res.send('<h2 style="color:white; text-align:center; margin-top:50px;">عذراً، يجب أن تكون مسؤولاً (Admin) في سيرفر واحد على الأقل للتحكم بالبوت.</h2>');
     }
 
-    // جلب بيانات السيرفر المحدد أو وضع بيانات افتراضية
     if (!dashboardData[selectedGuildId]) {
         dashboardData[selectedGuildId] = {
             channelId: '',
@@ -247,39 +245,40 @@ async function sendEmbedToDiscord(guildId) {
         const embed = new EmbedBuilder()
             .setTitle(data.embedTitle || null)
             .setDescription(data.embedDescription || null)
-            .setColor('#2f3136');
+            .setColor('#2f3136'); 
 
         if (data.imageUrl) {
             embed.setImage(data.imageUrl);
         }
 
-        // إنشاء صفوف للأزرار (الحد الأقصى لديسكورد هو 5 أزرار بالسطر الواحد)
-        const row1 = new ActionRowBuilder();
-        const row2 = new ActionRowBuilder();
+        const components = [];
+        let currentRow = new ActionRowBuilder();
+        let addedButtonsCount = 0;
 
         data.buttons.forEach((btn, index) => {
             if (!btn.text || btn.text.trim() === '') return;
 
             const buttonBuilder = new ButtonBuilder()
                 .setLabel(btn.text)
-                .setCustomId(`dash_button_${guildId}_${index}`) // ربط السيرفر بالزر تفادياً للتداخل
-                .setStyle(ButtonStyle.Secondary);
+                .setCustomId(`dash_button_${guildId}_${index}`) 
+                .setStyle(ButtonStyle.Secondary); 
 
             if (btn.emoji && btn.emoji.trim() !== '') {
                 buttonBuilder.setEmoji(btn.emoji.trim());
             }
 
-            // توزيع متناسق للأزرار (مثال: 4 في السطر الأول و4 في السطر الثاني ليتطابق مع صورتك)
-            if (index < 4) {
-                row1.addComponents(buttonBuilder);
-            } else {
-                row2.addComponents(buttonBuilder);
+            if (addedButtonsCount > 0 && addedButtonsCount % 4 === 0) {
+                components.push(currentRow);
+                currentRow = new ActionRowBuilder();
             }
+
+            currentRow.addComponents(buttonBuilder);
+            addedButtonsCount++;
         });
 
-        const components = [];
-        if (row1.components.length > 0) components.push(row1);
-        if (row2.components.length > 0) components.push(row2);
+        if (currentRow.components.length > 0) {
+            components.push(currentRow);
+        }
 
         await channel.send({ embeds: [embed], components: components });
         console.log("تم إرسال لوحة الإمبد بنجاح للسيرفر.");
@@ -289,39 +288,39 @@ async function sendEmbedToDiscord(guildId) {
     }
 }
 
-// معالجة التفاعل والرد الخفي في إمبد حصري
+// معالجة التفاعل والرد الخفي في إمبد حصري ومستقر
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isButton()) return;
 
     if (interaction.customId.startsWith('dash_button_')) {
-        // استخراج معرف السيرفر وفهرس الزر من الـ Custom ID للزر المكبوس
-        const parts = interaction.customId.replace('dash_button_', '').split('_');
+        // استخراج معرف السيرفر والفهرس بدقة من الـ CustomId الممرر
+        const cleanId = interaction.customId.replace('dash_button_', '');
+        const parts = cleanId.split('_');
         const guildId = parts[0];
         const index = parseInt(parts[1], 10);
 
         try {
-            if (fs.existsSync(DATA_FILE)) {
-                const savedData = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-                const serverData = savedData[guildId];
+            const serverData = dashboardData[guildId];
 
-                if (serverData && serverData.buttons && serverData.buttons[index]) {
-                    const buttonConfig = serverData.buttons[index];
+            if (serverData && serverData.buttons && serverData.buttons[index]) {
+                const buttonConfig = serverData.buttons[index];
 
-                    if (buttonConfig && buttonConfig.response) {
-                        // بناء الإمبد الخاص بالرد المخفي كما طلبت تماماً وبألوان منسقة
-                        const responseEmbed = new EmbedBuilder()
-                            .setDescription(buttonConfig.response)
-                            .setColor('#5865F2');
+                if (buttonConfig && buttonConfig.response && buttonConfig.response.trim() !== '') {
+                    const responseEmbed = new EmbedBuilder()
+                        .setDescription(buttonConfig.response)
+                        .setColor('#5865F2'); 
 
-                        // إرسال الرد بشكل مخفي بالكامل (Ephemeral)
-                        await interaction.reply({ embeds: [responseEmbed], ephemeral: true });
-                    } else {
-                        await interaction.reply({ content: 'لا يوجد رد مبرمج لهذا الزر حالياً.', ephemeral: true });
-                    }
+                    return await interaction.reply({ embeds: [responseEmbed], ephemeral: true });
                 }
             }
+            
+            await interaction.reply({ content: 'لا يوجد رد مبرمج لهذا الزر حالياً.', ephemeral: true });
+
         } catch (err) {
             console.error("فشل في معالجة تفاعل الزر:", err);
+            try {
+                await interaction.reply({ content: 'حدث خطأ داخلي أثناء معالجة الطلب.', ephemeral: true });
+            } catch (_) {}
         }
     }
 });
