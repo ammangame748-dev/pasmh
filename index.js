@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require('discord.js');
 const express = require('express');
 const session = require('express-session');
 const multer = require('multer');
@@ -121,14 +121,18 @@ app.post('/dashboard/:guildId/save', upload.single('image'), async (req, res) =>
     if (!req.session.loggedIn) return res.redirect('/login');
     const guildId = req.params.guildId;
 
-    let buttonsData = [];
+     let buttonsData = [];
     for (let i = 0; i < 6; i++) {
-        buttonsData.push({
-            label: req.body[`btn_label_${i}`],
-            emoji: req.body[`btn_emoji_${i}`] || null,
-            reply: req.body[`btn_reply_${i}`]
-        });
+        // فحص إذا كان حقل الاسم معبأ وليس فارغاً
+        if (req.body[`btn_label_${i}`] && req.body[`btn_label_${i}`].trim() !== '') {
+            buttonsData.push({
+                label: req.body[`btn_label_${i}`],
+                emoji: req.body[`btn_emoji_${i}`] || null,
+                reply: req.body[`btn_reply_${i}`]
+            });
+        }
     }
+
 
     serverSettings[guildId] = {
         channelId: req.body.channelId,
@@ -138,15 +142,15 @@ app.post('/dashboard/:guildId/save', upload.single('image'), async (req, res) =>
         imagePath: req.file ? req.file.path : (serverSettings[guildId]?.imagePath || null)
     };
 
-    try {
+        try {
         const channel = await bot.channels.fetch(req.body.channelId);
         if (!channel) return res.send('لم يتم العثور على الروم، يرجى التحقق من الـ ID.');
 
-        // 1. بناء الإيمباد الاحترافي بالتصميم المطلوب
+        // 1. بناء إيمباد الماب الفخم الملون باللون البنفسجي النيون الاحترافي
         const embed = new EmbedBuilder()
             .setTitle(req.body.title)
             .setDescription(req.body.description)
-            .setColor('#5c4d3c'); // اللون البني/البيج الفخم المتناسق مع الصورة
+            .setColor('#6366f1'); 
 
         let files = [];
         if (serverSettings[guildId].imagePath) {
@@ -155,51 +159,42 @@ app.post('/dashboard/:guildId/save', upload.single('image'), async (req, res) =>
             files.push({ attachment: serverSettings[guildId].imagePath, name: fileName });
         }
 
-        // 2. تقسيم الأزرار الستة على سطرين (تغيير الستاين لـ Secondary الرمادي الفخم)
-        const row1 = new ActionRowBuilder();
-        const row2 = new ActionRowBuilder();
+        let components = [];
+        // 2. بناء المنيو والقائمة المنسدلة فقط للخيارات التي قمت بتعبئتها
+        if (buttonsData.length > 0) {
+            const selectMenu = new StringSelectMenuBuilder()
+                .setCustomId(`custom_menu_${guildId}`)
+                .setPlaceholder('🔮 اضغط هنا واختير الخيار المطلوب...');
 
-        for (let i = 0; i < 6; i++) {
-            const btnInfo = buttonsData[i];
-            const btn = new ButtonBuilder()
-                .setCustomId(`custom_btn_${guildId}_${i}`)
-                .setLabel(btnInfo.label)
-                .setStyle(ButtonStyle.Secondary); // لون رمادي غامق احترافي متناسق
-
-            if (btnInfo.emoji && btnInfo.emoji.trim() !== '') {
-                btn.setEmoji(btnInfo.emoji.trim());
-            }
-
-            if (i < 3) row1.addComponents(btn);
-            else row2.addComponents(btn);
-        }
-
-        // 3. الخدعة السحرية: جلب أو إنشاء ويب هوك بالروم لدمج الأزرار بداخل الإيمباد
-        const webhooks = await channel.fetchWebhooks();
-        let webhook = webhooks.find(wh => wh.owner.id === bot.user.id);
-        
-        if (!webhook) {
-            webhook = await channel.createWebhook({
-                name: 'BS System Embedder',
-                avatar: bot.user.displayAvatarURL(),
+            buttonsData.forEach((btnInfo, index) => {
+                const option = new StringSelectMenuOptionBuilder()
+                    .setLabel(btnInfo.label)
+                    .setValue(`option_${index}`);
+                
+                if (btnInfo.emoji && btnInfo.emoji.trim() !== '') {
+                    option.setEmoji(btnInfo.emoji.trim());
+                }
+                selectMenu.addOptions(option);
             });
+
+            const row = new ActionRowBuilder().addComponents(selectMenu);
+            components.push(row);
         }
 
-        // إرسال عبر الويب هوك لتحقيق المظهر المدمج المحاط بالكامل بالخط الجانبي الملون
-        await webhook.send({
+        // 3. الإرسال المباشر والآمن عن طريق البوت لحل المشاكل نهائياً
+        await channel.send({
             embeds: [embed],
-            components: [row1, row2],
+            components: components,
             files: files
         });
 
-        res.send(`<script>alert("تم حفظ الإعدادات وإرسال الماب المدمج بنجاح!"); window.location.href="/dashboard/${guildId}";</script>`);
+        res.send(`<script>alert("تم حفظ الإعدادات وإرسال الماب والمنيو بنجاح!"); window.location.href="/dashboard/${guildId}";</script>`);
 
     } catch (error) {
         console.error(error);
         res.send('حدث خطأ أثناء إرسال الرسالة إلى ديسكورد: ' + error.message);
     }
 });
-
 
 app.get('/logout', (req, res) => {
     req.session.destroy();
@@ -212,38 +207,37 @@ app.get('/', (req, res) => {
 
 // التفاعل مع الأزرار والرد المخفي المخفي (Ephemeral)
 // التفاعل مع ضغطات الأزرار والرد بـ إيمباد مخفي وخاص
+// التفاعل مع خيارات المنيو والرد بإيمباد مخفي وخاص
 bot.on('interactionCreate', async interaction => {
-    if (!interaction.isButton()) return;
+    if (!interaction.isStringSelectMenu()) return;
 
     const customId = interaction.customId;
-    if (customId.startsWith('custom_btn_')) {
-        const parts = customId.split('_');
-        const guildId = parts[2]; // جلب أيدي السيرفر
-        const btnIndex = parseInt(parts[3]); // جلب رقم الزر المكبوس
+    if (customId.startsWith('custom_menu_')) {
+        const guildId = customId.split('_')[2];
+        const selectedValue = interaction.values[0]; // القيمة المختارة مثل option_0
+        const btnIndex = parseInt(selectedValue.split('_')[1]);
 
-        // جلب الإعدادات المحفوظة للسيرفر
         const settings = serverSettings[guildId];
         if (settings && settings.buttons && settings.buttons[btnIndex]) {
             const replyMessage = settings.buttons[btnIndex].reply;
             const btnLabel = settings.buttons[btnIndex].label;
 
-            // بناء الإيمباد الخاص بالرد
+            // بناء الإيمباد المخفي الخاص بالرد
             const replyEmbed = new EmbedBuilder()
-                .setTitle(`📌 | ${btnLabel}`) // عنوان الإيمباد يكون اسم الزر
-                .setDescription(replyMessage) // محتوى الإيمباد هو الرد المكتوب بالداش بورد
-                .setColor('#6366f1'); // لون الإيمباد بنفسجي نيون فخم
+                .setTitle(`📌 | ${btnLabel}`)
+                .setDescription(replyMessage)
+                .setColor('#6366f1');
 
-            // الرد المخفي والخاص بالعضو فقط (Ephemeral) بالإيمباد
             await interaction.reply({ embeds: [replyEmbed], ephemeral: true });
         } else {
-            // إيمباد افتراضي في حال عدم وجود بيانات
             const errorEmbed = new EmbedBuilder()
-                .setDescription('❌ لم يتم العثور على الرد المخصص لهذا الزر باللوحة.')
+                .setDescription('❌ حدث خطأ، لم يتم العثور على بيانات هذا الخيار.')
                 .setColor('#ef4444');
             await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
         }
     }
 });
+
 
 
 bot.login(process.env.DISCORD_TOKEN);
