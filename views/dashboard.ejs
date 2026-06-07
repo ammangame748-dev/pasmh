@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>لوحة التحكم - اختيار السيرفر</title>
+    <script src="https://tailwindcss.com"></script>
+</head>
+<body class="bg-gray-950 text-gray-100 font-sans">
+    <div class="container mx-auto p-8">
+        <header class="flex justify-between items-center mb-12 border-b border-gray-800 pb-6">
+            <h1 class="text-3xl font-extrabold text-indigo-500 tracking-wide">🎛️ لوحة تحكم البوت</h1>
+            <a href="/logout" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg text-sm font-semibold transition">تسجيل الخروج</a>
+        </header>
+        
+        <h2 class="text-xl mb-6 text-gray-400">اختر السيرفر الذي ترغب بالتحكم به:</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <% guilds.forEach(guild => { %>
+                <div class="bg-gray-900 border border-gray-800 p-6 rounded-2xl flex flex-col justify-between hover:border-indigo-500 transition-all duration-300 shadow-xl">
+                    <div class="flex items-center space-x-4 space-x-reverse mb-4">
+                        <% if(guild.icon) { %>
+                            <img src="https://discordapp.com<%= guild.id %>/<%= guild.icon %>.png" class="w-14 h-14 rounded-full border-2 border-indigo-500">
+                        <% } else { %>
+                            <div class="w-14 h-14 bg-indigo-600 rounded-full flex items-center justify-center text-xl font-bold"><%= guild.name.charAt(0) %></div>
+                        <% } %>
+                        <div class="mr-4">
+                            <h3 class="text-lg font-bold"><%= guild.name %></h3>
+                            <p class="text-xs text-gray-500">ID: <%= guild.id %></p>
+                        </div>
+                    </div>
+                    <a href="/dashboard/<%= guild.id %>" class="w-full text-center bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 px-4 rounded-xl transition">تخصيص الماب والأزرار</a>
+                </div>
+            <% }) %>
+        </div>
+    </div>
+</body>
+</html>

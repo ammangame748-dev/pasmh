@@ -7,11 +7,13 @@
   },
   "dependencies": {
     "body-parser": "^1.20.2",
-    "discord.js": "^14.14.1",
+    "discord.js": "^14.26.4",
     "dotenv": "^17.4.2",
-    "express": "^4.18.2",
+    "ejs": "^6.0.1",
+    "express": "^4.22.2",
     "express-session": "^1.19.0",
     "memory-cache": "^0.2.0",
+    "multer": "^2.1.1",
     "passport": "^0.7.0",
     "passport-discord": "^0.1.4"
   }
