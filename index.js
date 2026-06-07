@@ -117,7 +117,6 @@ app.get('/dashboard/:guildId', (req, res) => {
     res.render('server', { guildId, settings });
 });
 
-// استقبال البيانات وإرسال الإيمباد للبوت
 app.post('/dashboard/:guildId/save', upload.single('image'), async (req, res) => {
     if (!req.session.loggedIn) return res.redirect('/login');
     const guildId = req.params.guildId;
@@ -143,10 +142,11 @@ app.post('/dashboard/:guildId/save', upload.single('image'), async (req, res) =>
         const channel = await bot.channels.fetch(req.body.channelId);
         if (!channel) return res.send('لم يتم العثور على الروم، يرجى التحقق من الـ ID.');
 
+        // 1. بناء الإيمباد الاحترافي بالتصميم المطلوب
         const embed = new EmbedBuilder()
             .setTitle(req.body.title)
             .setDescription(req.body.description)
-            .setColor('#4f46e5');
+            .setColor('#5c4d3c'); // اللون البني/البيج الفخم المتناسق مع الصورة
 
         let files = [];
         if (serverSettings[guildId].imagePath) {
@@ -155,6 +155,7 @@ app.post('/dashboard/:guildId/save', upload.single('image'), async (req, res) =>
             files.push({ attachment: serverSettings[guildId].imagePath, name: fileName });
         }
 
+        // 2. تقسيم الأزرار الستة على سطرين (تغيير الستاين لـ Secondary الرمادي الفخم)
         const row1 = new ActionRowBuilder();
         const row2 = new ActionRowBuilder();
 
@@ -163,7 +164,7 @@ app.post('/dashboard/:guildId/save', upload.single('image'), async (req, res) =>
             const btn = new ButtonBuilder()
                 .setCustomId(`custom_btn_${guildId}_${i}`)
                 .setLabel(btnInfo.label)
-                .setStyle(ButtonStyle.Primary);
+                .setStyle(ButtonStyle.Secondary); // لون رمادي غامق احترافي متناسق
 
             if (btnInfo.emoji && btnInfo.emoji.trim() !== '') {
                 btn.setEmoji(btnInfo.emoji.trim());
@@ -173,14 +174,32 @@ app.post('/dashboard/:guildId/save', upload.single('image'), async (req, res) =>
             else row2.addComponents(btn);
         }
 
-        await channel.send({ embeds: [embed], components: [row1, row2], files: files });
-        res.send(`<script>alert("تم حفظ الإعدادات وإرسال الإيمباد بنجاح!"); window.location.href="/dashboard/${guildId}";</script>`);
+        // 3. الخدعة السحرية: جلب أو إنشاء ويب هوك بالروم لدمج الأزرار بداخل الإيمباد
+        const webhooks = await channel.fetchWebhooks();
+        let webhook = webhooks.find(wh => wh.owner.id === bot.user.id);
+        
+        if (!webhook) {
+            webhook = await channel.createWebhook({
+                name: 'BS System Embedder',
+                avatar: bot.user.displayAvatarURL(),
+            });
+        }
+
+        // إرسال عبر الويب هوك لتحقيق المظهر المدمج المحاط بالكامل بالخط الجانبي الملون
+        await webhook.send({
+            embeds: [embed],
+            components: [row1, row2],
+            files: files
+        });
+
+        res.send(`<script>alert("تم حفظ الإعدادات وإرسال الماب المدمج بنجاح!"); window.location.href="/dashboard/${guildId}";</script>`);
 
     } catch (error) {
         console.error(error);
         res.send('حدث خطأ أثناء إرسال الرسالة إلى ديسكورد: ' + error.message);
     }
 });
+
 
 app.get('/logout', (req, res) => {
     req.session.destroy();
