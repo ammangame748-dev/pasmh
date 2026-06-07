@@ -46,10 +46,12 @@ app.use(session({
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-// مسارات تسجيل الدخول Oauth2 ديسكورد
 app.get('/login', (req, res) => {
+    const clientId = process.env.CLIENT_ID;
     const redirectUri = encodeURIComponent(process.env.REDIRECT_URI);
-    const discordUrl = `https://discord.com{process.env.CLIENT_ID}&redirect_uri=${redirectUri}&response_type=code&scope=identify%20guilds`;
+
+    const discordUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=identify%20guilds`;
+
     res.redirect(discordUrl);
 });
 
