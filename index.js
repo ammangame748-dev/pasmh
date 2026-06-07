@@ -31,11 +31,17 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use('/uploads', express.static('uploads'));
 
+// استبدل قسم الـ session القديم بهذا القسم المحدث تماماً:
 app.use(session({
-    secret: process.env.SESSION_SECRET,
+    secret: process.env.SESSION_SECRET || 'a-very-strong-fallback-secret-key-998877',
     resave: false,
-    saveUninitialized: false
+    saveUninitialized: false,
+    cookie: { 
+        secure: false, // اتركه false ليعمل على نطاق ريندر الافتراضي بدون مشاكل
+        maxAge: 24 * 60 * 60 * 1000 // مدة الجلسة يوم كامل
+    }
 }));
+
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
@@ -196,8 +202,9 @@ bot.on('interactionCreate', async interaction => {
 });
 
 bot.login(process.env.DISCORD_TOKEN);
-bot.once('ready', () => {
-    console.log(`🤖 Bot connected as ${bot.user.tag}`);
+// استبدل السطر الأخير بهذا التعديل ليتوافق مع الإصدار الجديد:
+bot.once('clientReady', (readyClient) => {
+    console.log(`🤖 Bot connected as ${readyClient.user.tag}`);
     app.listen(process.env.PORT || 3000, () => {
         console.log(`🌐 Dashboard online on port ${process.env.PORT || 3000}`);
     });
