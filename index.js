@@ -1,299 +1,235 @@
-require('dotenv').config();
-
-const {
-    Client,
-    GatewayIntentBits,
-    EmbedBuilder,
-    ActionRowBuilder,
-    ButtonBuilder,
-    ButtonStyle,
-    PermissionFlagsBits,
-    ModalBuilder,
-    TextInputBuilder,
-    TextInputStyle,
-    StringSelectMenuBuilder,
-    ChannelType // 1. تم إضافة استدعاء نوع القناة هنا
-} = require('discord.js');
-
+require('dotenv').config(); // قراءة توكن البوت من ملف .env الخاص بك
+const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const express = require('express');
+const bodyParser = require('body-parser');
+const fs = require('fs');
 const path = require('path');
 
+// إعداد البوت مع الصلاحيات الأساسية
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
+
 const app = express();
+app.use(bodyParser.urlencoded({ extended: true }));
 
-// ================= EXPRESS =================
-app.use(express.static(path.join(__dirname, 'public')));
+// مسار ملف حفظ البيانات لحمايتها من الضياع عند عمل ريستارت للبوت
+const DATA_FILE = path.join(__dirname, 'dashboard-data.json');
 
-app.get('/', (req, res) => {
-    // تلميح أمان: تأكد من وجود مجلد views وملف index.html حتى لا يظهر خطأ
-    res.sendFile(path.join(__dirname, 'views', 'index.html'));
-});
+// البيانات الافتراضية للداش بورد (8 أزرار)
+let dashboardData = {
+    channelId: '',
+    embedTitle: 'Welcome to the Server',
+    embedDescription: 'Please read the rules below...',
+    imageUrl: '',
+    buttons: Array.from({ length: 8 }, (_, i) => ({
+        text: `الزر ${i + 1}`,
+        emoji: '',
+        response: `نص الرد الخاص بالزر ${i + 1}`
+    }))
+};
 
-app.use((req, res) => res.status(404).send("Not Found"));
-
-const PORT = process.env.PORT || 3000;
-// تم إضافة '0.0.0.0' لضمان قبول الاتصالات الخارجية على سيرفر Render دون مشاكل تجميد
-app.listen(PORT, '0.0.0.0', () => console.log(`🌐 Server running on port ${PORT}`));
-
-// ================= DISCORD CLIENT =================
-const client = new Client({
-    intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildMembers
-    ]
-});
-
-// ================= DATA =================
-let autoLineBanner = null;
-let lastTicketImage = null;
-let lastTicketEmoji = null;
-let lastRenameImage = null;
-let lastRenameEmoji = null;
-
-// ================= COMMANDS =================
-const commands = [
-    {
-        name: 'set-line',
-        description: 'تحديد صورة الخط',
-        options: [{
-            name: 'image',
-            description: 'الصورة',
-            type: 11,
-            required: true
-        }]
-    },
-    {
-        name: 'setup-ticket',
-        description: 'إعداد التذاكر',
-        options: [
-            { name: 'image', type: 11, description: 'صورة', required: true },
-            { name: 'emoji', type: 3, description: 'ايموجي ID', required: true }
-        ]
-    },
-    {
-        name: 'setup-rename',
-        description: 'إعداد تغيير الاسم',
-        options: [
-            { name: 'image', type: 11, required: true },
-            { name: 'emoji', type: 3, required: true }
-        ]
-    }
-];
-
-// ================= READY =================
-client.on('ready', async () => {
-    console.log(`🤖 Logged in as ${client.user.tag}`);
-    await client.application.commands.set(commands);
-});
-
-// ================= MESSAGE COMMANDS =================
-client.on('messageCreate', async (message) => {
-    if (!message.guild || message.author.bot) return;
-
-    // خط
-    if (message.content === '-خط' && autoLineBanner) {
-        await message.delete().catch(() => { });
-        return message.channel.send({ files: [autoLineBanner] });
-    }
-
-    // صلاحية
-    if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) return;
-
-    // قفل
-    if (message.content === 'ق') {
-        await message.channel.permissionOverwrites.edit(message.guild.id, {
-            SendMessages: false
-        });
-        await message.delete().catch(() => { });
-        message.channel.send("🔒 تم القفل").then(m => setTimeout(() => m.delete(), 3000));
-    }
-
-    // فتح
-    if (message.content === 'ف') {
-        await message.channel.permissionOverwrites.edit(message.guild.id, {
-            SendMessages: true
-        });
-        await message.delete().catch(() => { });
-        message.channel.send("🔓 تم الفتح").then(m => setTimeout(() => m.delete(), 3000));
-    }
-
-    // مسح
-    if (message.content.startsWith('م')) {
-        const amount = parseInt(message.content.slice(1));
-        if (!amount || amount <= 0) return;
-        if (amount > 100) return message.reply("max 100");
-        await message.channel.bulkDelete(amount + 1, true).catch(() => { });
-    }
-});
-
-// ================= INTERACTIONS =================
-client.on('interactionCreate', async (interaction) => {
-
-    // ================= SLASH =================
-    if (interaction.isChatInputCommand()) {
-        if (interaction.commandName === 'set-line') {
-            autoLineBanner = interaction.options.getAttachment('image').url;
-            return interaction.reply({ content: "✅ تم حفظ الخط", ephemeral: true });
-        }
-
-        if (interaction.commandName === 'setup-ticket') {
-            lastTicketImage = interaction.options.getAttachment('image').url;
-            lastTicketEmoji = interaction.options.getString('emoji');
-
-            const modal = new ModalBuilder()
-                .setCustomId('ticket_modal')
-                .setTitle('Setup Ticket');
-
-            modal.addComponents(
-                new ActionRowBuilder().addComponents(
-                    new TextInputBuilder()
-                        .setCustomId('msg')
-                        .setLabel('الوصف')
-                        .setStyle(TextInputStyle.Paragraph)
-                )
-            );
-            return interaction.showModal(modal);
-        }
-
-        if (interaction.commandName === 'setup-rename') {
-            lastRenameImage = interaction.options.getAttachment('image').url;
-            lastRenameEmoji = interaction.options.getString('emoji');
-
-            const modal = new ModalBuilder()
-                .setCustomId('rename_modal')
-                .setTitle('Rename Setup');
-
-            modal.addComponents(
-                new ActionRowBuilder().addComponents(
-                    new TextInputBuilder()
-                        .setCustomId('msg')
-                        .setLabel('الوصف')
-                        .setStyle(TextInputStyle.Paragraph)
-                )
-            );
-            return interaction.showModal(modal);
+// دالة لجلب البيانات المخزنة من الملف إن وجدت
+function loadData() {
+    if (fs.existsSync(DATA_FILE)) {
+        try {
+            const fileData = fs.readFileSync(DATA_FILE, 'utf8');
+            dashboardData = JSON.parse(fileData);
+            console.log("تم تحميل بيانات الداش بورد السابقة بنجاح.");
+        } catch (e) {
+            console.error("خطأ في قراءة ملف البيانات، سيتم اعتماد القيم الافتراضية:", e);
         }
     }
-
-    // ================= MODALS =================
-    if (interaction.isModalSubmit()) {
-        // ticket panel
-        if (interaction.customId === 'ticket_modal') {
-            const embed = new EmbedBuilder()
-                .setDescription(interaction.fields.getTextInputValue('msg'))
-                .setColor('Blue');
-
-            if (lastTicketImage) embed.setImage(lastTicketImage);
-
-            const menu = new ActionRowBuilder().addComponents(
-                new StringSelectMenuBuilder()
-                    .setCustomId('open_ticket')
-                    .setPlaceholder('فتح تذكرة')
-                    .addOptions([
-                        {
-                            label: 'فتح',
-                            value: 'create',
-                            emoji: lastTicketEmoji
-                        }
-                    ])
-            );
-
-            await interaction.channel.send({
-                embeds: [embed],
-                components: [menu]
-            });
-            return interaction.reply({ content: "تم النشر", ephemeral: true });
-        }
-
-        // rename panel
-        if (interaction.customId === 'rename_modal') {
-            const embed = new EmbedBuilder()
-                .setDescription(interaction.fields.getTextInputValue('msg'))
-                .setColor('Purple');
-
-            if (lastRenameImage) embed.setImage(lastRenameImage); // إضافة الصورة إذا وجدت للرينيم أيضاً
-
-            const menu = new ActionRowBuilder().addComponents(
-                new StringSelectMenuBuilder()
-                    .setCustomId('rename_menu')
-                    .setPlaceholder('تغيير الاسم')
-                    .addOptions([
-                        {
-                            label: 'تغيير',
-                            value: 'go',
-                            emoji: lastRenameEmoji
-                        }
-                    ])
-            );
-
-            await interaction.channel.send({
-                embeds: [embed],
-                components: [menu]
-            });
-            return interaction.reply({ content: "تم النشر", ephemeral: true });
-        }
-
-        // rename channel -> تم تحويله إلى تغيير لقب العضو داخل السيرفر
-if (interaction.customId === 'modal_rename_t') {
-    const name = interaction.fields.getTextInputValue('name');
-
-    // تغيير لقب العضو الذي أرسل النموذج داخل السيرفر الحالي
-    await interaction.member.setNickname(name).catch(err => console.error("فشل تغيير اللقب بسبب الصلاحيات:", err));
-
-    return interaction.reply({ content: `✅ تم تغيير اسمك في السيرفر إلى: **${name}**`, ephemeral: true });
 }
 
+// دالة لحفظ البيانات الجديدة في الملف
+function saveData() {
+    try {
+        fs.writeFileSync(DATA_FILE, JSON.stringify(dashboardData, null, 4), 'utf8');
+        console.log("تم حفظ التعديلات الجديدة في ملفdashboard-data.json");
+    } catch (e) {
+        console.error("فشل حفظ البيانات في الملف:", e);
+    }
+}
+
+// تحميل البيانات فور تشغيل السكريبت
+loadData();
+
+// تصميم واجهة الـ Dashboard (HTML)
+const getHtmlTemplate = (data) => `
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>لوحة تحكم البوت</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #2f3136; color: #fff; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: #36393f; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        h1, h2 { text-align: center; color: #5865F2; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; color: #b9bbbe; }
+        input[type="text"], textarea { width: 100%; padding: 10px; border-radius: 4px; border: 1px solid #202225; background: #40444b; color: #fff; box-sizing: border-box; font-size: 14px; }
+        input:focus, textarea:focus { border-color: #5865F2; outline: none; }
+        .button-row { border: 1px solid #4f545c; padding: 15px; margin-bottom: 15px; border-radius: 5px; background: #2f3136; }
+        .submit-btn { width: 100%; padding: 15px; background: #248046; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; font-weight: bold; transition: background 0.2s; }
+        .submit-btn:hover { background: #1a6535; }
+        h3 { margin-top: 0; color: #5865F2; border-bottom: 1px solid #4f545c; padding-bottom: 5px;}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>لوحة تحكم الأزرار والإيمباد</h1>
+        <form method="POST" action="/update">
+            <h2>إعدادات رسالة الإيمباد (Embed)</h2>
+            <div class="form-group">
+                <label>معرف الروم (Channel ID) التي سيرسل البوت فيها:</label>
+                <input type="text" name="channelId" value="${data.channelId || ''}" required placeholder="مثال: 123456789012345678">
+            </div>
+            <div class="form-group">
+                <label>عنوان الإيمباد (Embed Title):</label>
+                <input type="text" name="embedTitle" value="${data.embedTitle || ''}">
+            </div>
+            <div class="form-group">
+                <label>وصف الإيمباد الأساسي (Embed Description):</label>
+                <textarea name="embedDescription" rows="4">${data.embedDescription || ''}</textarea>
+            </div>
+            <div class="form-group">
+                <label>رابط الصورة الكبيرة (Image URL):</label>
+                <input type="text" name="imageUrl" value="${data.imageUrl || ''}" placeholder="ضع رابط الصورة هنا">
+            </div>
+
+            <h2>إعدادات الأزرار (8 أزرار متاحين)</h2>
+            ${data.buttons.map((btn, i) => `
+            <div class="button-row">
+                <h3>إعدادات الزر رقم ${i + 1}</h3>
+                <div class="form-group">
+                    <label>اسم أو نص الزر:</label>
+                    <input type="text" name="btn_text_${i}" value="${btn.text || ''}">
+                </div>
+                <div class="form-group">
+                    <label>ID الإيموجي الخاص بالسيرفر (اتركه فارغاً إن لم ترغب بإيموجي):</label>
+                    <input type="text" name="btn_emoji_${i}" value="${btn.emoji || ''}" placeholder="مثال: 123456789012345678">
+                </div>
+                <div class="form-group">
+                    <label>الرسالة المخفية التي ستظهر للعضو عند الضغط على هذا الزر:</label>
+                    <textarea name="btn_resp_${i}" rows="3" placeholder="اكتب هنا القوانين أو المعلومات التي ستظهر عند الضغط...">${btn.response || ''}</textarea>
+                </div>
+            </div>
+            `).join('')}
+            
+            <button type="submit" class="submit-btn">تحديث البيانات وإرسال الإيمباد فوراً 🚀</button>
+        </form>
+    </div>
+</body>
+</html>
+`;
+
+// مسارات واجهة الويب (Express Routes)
+app.get('/', (req, res) => {
+    res.send(getHtmlTemplate(dashboardData));
+});
+
+app.post('/update', async (req, res) => {
+    // تحديث البيانات من الفورم للذاكرة
+    dashboardData.channelId = req.body.channelId;
+    dashboardData.embedTitle = req.body.embedTitle;
+    dashboardData.embedDescription = req.body.embedDescription;
+    dashboardData.imageUrl = req.body.imageUrl;
+
+    for (let i = 0; i < 8; i++) {
+        dashboardData.buttons[i].text = req.body[`btn_text_${i}`];
+        dashboardData.buttons[i].emoji = req.body[`btn_emoji_${i}`];
+        dashboardData.buttons[i].response = req.body[`btn_resp_${i}`];
     }
 
-    // ================= SELECT MENU =================
-    if (interaction.isStringSelectMenu()) {
-        // open ticket
-        if (interaction.customId === 'open_ticket') {
-            // 2. إصلاح دمج الأكواد وإضافة نوع القناة GuildText الضروري للإصدار v14
-            const channel = await interaction.guild.channels.create({
-                name: `ticket-${interaction.user.username}`,
-                type: ChannelType.GuildText, 
-                permissionOverwrites: [
-                    {
-                        id: interaction.guild.id,
-                        deny: [PermissionFlagsBits.ViewChannel]
-                    },
-                    {
-                        id: interaction.user.id,
-                        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]
-                    }
-                ]
-            });
+    // حفظ التغييرات في ملف JSON لضمان عدم ضياعها
+    saveData();
 
-            return interaction.reply({
-                content: `تم إنشاء التذكرة: ${channel}`,
-                ephemeral: true
-            });
+    // إرسال الإيمباد إلى ديسكورد فوراً
+    await sendEmbedToDiscord();
+    
+    // إعادة التوجيه للرئيسية بعد الحفظ والارسال
+    res.redirect('/');
+});
+
+// دالة إرسال وصنع الإيمباد والأزرار
+async function sendEmbedToDiscord() {
+    try {
+        const channel = await client.channels.fetch(dashboardData.channelId);
+        if (!channel) return console.log("الروم غير موجودة أو البوت لا يملك صلاحية رؤيتها.");
+
+        // 1. بناء الـ Embed
+        const embed = new EmbedBuilder()
+            .setTitle(dashboardData.embedTitle || null)
+            .setDescription(dashboardData.embedDescription || null)
+            .setColor('#2f3136');
+
+        if (dashboardData.imageUrl) {
+            embed.setImage(dashboardData.imageUrl);
         }
 
-        // rename modal trigger
-        if (interaction.customId === 'rename_menu') {
-            const modal = new ModalBuilder()
-                .setCustomId('modal_rename_t')
-                .setTitle('Rename');
+        // 2. بناء الأزرار (تقسيم الـ 8 أزرار على سطرين: 5 في الأول و 3 في الثاني لالتزام بحدود ديسكورد)
+        const row1 = new ActionRowBuilder();
+        const row2 = new ActionRowBuilder();
 
-            modal.addComponents(
-                new ActionRowBuilder().addComponents(
-                    new TextInputBuilder()
-                        .setCustomId('name')
-                        .setLabel('الاسم الجديد')
-                        .setStyle(TextInputStyle.Short)
-                )
-            );
-            return interaction.showModal(modal);
+        dashboardData.buttons.forEach((btn, index) => {
+            if (!btn.text) return; // تخطي الزر إذا كان اسمه فارغاً
+
+            const buttonBuilder = new ButtonBuilder()
+                .setLabel(btn.text)
+                .setCustomId(`dash_button_${index}`)
+                .setStyle(ButtonStyle.Secondary);
+
+            if (btn.emoji && btn.emoji.trim() !== '') {
+                buttonBuilder.setEmoji(btn.emoji.trim());
+            }
+
+            if (index < 5) {
+                row1.addComponents(buttonBuilder);
+            } else {
+                row2.addComponents(buttonBuilder);
+            }
+        });
+
+        const components = [];
+        if (row1.components.length > 0) components.push(row1);
+        if (row2.components.length > 0) components.push(row2);
+
+        // إرسال الرسالة للروم المحددة بالداش بورد
+        await channel.send({ embeds: [embed], components: components });
+        console.log("تم إرسال الإيمباد والأزرار التفاعلية بنجاح!");
+
+    } catch (error) {
+        console.error("حدث خطأ أثناء إرسال الرسالة إلى ديسكورد:", error);
+    }
+}
+
+// التعامل مع ضغطات الأزرار (Interaction Create)
+client.on('interactionCreate', async (interaction) => {
+    if (!interaction.isButton()) return;
+
+    // التحقق من أن الزر تابع للداش بورد الخاص بنا
+    if (interaction.customId.startsWith('dash_button_')) {
+        const index = parseInt(interaction.customId.replace('dash_button_', ''));
+        const buttonConfig = dashboardData.buttons[index];
+
+        if (buttonConfig && buttonConfig.response) {
+            // إرسال الرد المخصص للزر بشكل مخفي (Ephemeral) ليراه العضو الذي ضغط فقط بنفس الروم لمنع التخريب
+            await interaction.reply({ content: buttonConfig.response, ephemeral: true });
+        } else {
+            await interaction.reply({ content: 'لا يوجد رد مبرمج لهذا الزر حالياً.', ephemeral: true });
         }
     }
 });
 
-// ================= ERROR HANDLING =================
-process.on('unhandledRejection', console.error);
-process.on('uncaughtException', console.error);
+// تشغيل الويب سيرفر للبورت المتغير لـ Render
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`الداش بورد يعمل الآن على البورت المفتوح: ${PORT}`);
+});
 
-// ================= LOGIN =================
-client.login(process.env.TOKEN);
+// التأكد من جلب التوكن من ملف .env المسمى بـ BOT_TOKEN
+const TOKEN = process.env.BOT_TOKEN;
+if (!TOKEN) {
+    console.error("خطأ: لم يتم العثور على BOT_TOKEN في ملف .env!");
+} else {
+    client.login(TOKEN);
+}
