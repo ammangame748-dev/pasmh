@@ -211,24 +211,40 @@ app.get('/', (req, res) => {
 });
 
 // التفاعل مع الأزرار والرد المخفي المخفي (Ephemeral)
+// التفاعل مع ضغطات الأزرار والرد بـ إيمباد مخفي وخاص
 bot.on('interactionCreate', async interaction => {
     if (!interaction.isButton()) return;
 
     const customId = interaction.customId;
     if (customId.startsWith('custom_btn_')) {
         const parts = customId.split('_');
-        const guildId = parts[2];
-        const btnIndex = parseInt(parts[3]);
+        const guildId = parts[2]; // جلب أيدي السيرفر
+        const btnIndex = parseInt(parts[3]); // جلب رقم الزر المكبوس
 
+        // جلب الإعدادات المحفوظة للسيرفر
         const settings = serverSettings[guildId];
-        if (settings && settings.buttons[btnIndex]) {
+        if (settings && settings.buttons && settings.buttons[btnIndex]) {
             const replyMessage = settings.buttons[btnIndex].reply;
-            await interaction.reply({ content: replyMessage, ephemeral: true });
+            const btnLabel = settings.buttons[btnIndex].label;
+
+            // بناء الإيمباد الخاص بالرد
+            const replyEmbed = new EmbedBuilder()
+                .setTitle(`📌 | ${btnLabel}`) // عنوان الإيمباد يكون اسم الزر
+                .setDescription(replyMessage) // محتوى الإيمباد هو الرد المكتوب بالداش بورد
+                .setColor('#6366f1'); // لون الإيمباد بنفسجي نيون فخم
+
+            // الرد المخفي والخاص بالعضو فقط (Ephemeral) بالإيمباد
+            await interaction.reply({ embeds: [replyEmbed], ephemeral: true });
         } else {
-            await interaction.reply({ content: 'عذراً، لم يتم العثور على بيانات هذا الزر.', ephemeral: true });
+            // إيمباد افتراضي في حال عدم وجود بيانات
+            const errorEmbed = new EmbedBuilder()
+                .setDescription('❌ لم يتم العثور على الرد المخصص لهذا الزر باللوحة.')
+                .setColor('#ef4444');
+            await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
         }
     }
 });
+
 
 bot.login(process.env.DISCORD_TOKEN);
 // استبدل السطر الأخير بهذا التعديل ليتوافق مع الإصدار الجديد:
