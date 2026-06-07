@@ -31,17 +31,17 @@
             <div class="form-row">
                 <div class="form-group">
                     <label>ID روم الإرسال داخل السيرفر (Channel ID):</label>
-                    <input type="text" name="channelId" value="<%= settings.channelId %>" required>
+                    <input type="text" name="channelId" value="<%= settings.channelId %>" >
                 </div>
                 <div class="form-group">
                     <label>عنوان الماب الرئيسي (Title):</label>
-                    <input type="text" name="title" value="<%= settings.title %>" required>
+                    <input type="text" name="title" value="<%= settings.title %>" >
                 </div>
             </div>
 
             <div class="form-group">
                 <label>وصف الماب وشرح القوانين (Description):</label>
-                <textarea name="description" rows="4" required><%= settings.description %></textarea>
+                <textarea name="description" rows="4" ><%= settings.description %></textarea>
             </div>
 
             <div class="form-group">
@@ -56,7 +56,7 @@
                         <span class="btn-badge">الزر رقم <%= i+1 %></span>
                         <div class="form-group" style="margin-top: 20px;">
                             <label>اسم الزر المكتوب:</label>
-                            <input type="text" name="btn_label_<%= i %>" value="<%= settings.buttons[i] ? settings.buttons[i].label : '' %>" required>
+                            <input type="text" name="btn_label_<%= i %>" value="<%= settings.buttons[i] ? settings.buttons[i].label : '' %>" >
                         </div>
                         <div class="form-group">
                             <label>ID الإيموجي للزر (اختياري):</label>
@@ -64,7 +64,7 @@
                         </div>
                         <div class="form-group">
                             <label>الرد الخاص المخفي (يظهر داخل Embed للعضو فقط):</label>
-                            <textarea name="btn_reply_<%= i %>" rows="3" required placeholder="اكتب النص الذي سيظهر داخل الإيمباد المخفي..."><%= settings.buttons[i] ? settings.buttons[i].reply : '' %></textarea>
+                            <textarea name="btn_reply_<%= i %>" rows="3" placeholder="اكتب النص الذي سيظهر داخل الإيمباد المخفي..."><%= settings.buttons[i] ? settings.buttons[i].reply : '' %></textarea>
                         </div>
                     </div>
                 <% } %>
