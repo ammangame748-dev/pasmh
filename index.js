@@ -60,22 +60,26 @@ app.get('/auth/discord/callback', async (req, res) => {
     if (!code) return res.send('فشل تسجيل الدخول!');
 
     try {
-        const tokenResponse = await fetch('https://discord.com', {
-            method: 'POST',
-            body: new URLSearchParams({
-                client_id: process.env.CLIENT_ID,
-                client_secret: process.env.CLIENT_SECRET,
-                grant_type: 'authorization_code',
-                code: code,
-                redirect_uri: process.env.REDIRECT_URI,
-            }),
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-        });
+        const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
+    method: 'POST',
+    body: new URLSearchParams({
+        client_id: process.env.CLIENT_ID,
+        client_secret: process.env.CLIENT_SECRET,
+        grant_type: 'authorization_code',
+        code: code,
+        redirect_uri: process.env.REDIRECT_URI
+    }),
+    headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+    }
+});
         const tokens = await tokenResponse.json();
 
-        const guildsResponse = await fetch('https://discord.com', {
-            headers: { Authorization: `Bearer ${tokens.access_token}` }
-        });
+        const guildsResponse = await fetch('https://discord.com/api/users/@me/guilds', {
+    headers: {
+        Authorization: `Bearer ${tokens.access_token}`
+    }
+});
         const guilds = await guildsResponse.json();
 
         // فلترة السيرفرات التي يمتلك فيها المستخدم صلاحية Administrator (رقم الصلاحية 0x8)
