@@ -24,8 +24,8 @@ passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((obj, done) => done(null, obj));
 
 passport.use(new DiscordStrategy({
-    clientID: process.env.CLIENT_ID,
-    clientSecret: process.env.CLIENT_SECRET,
+    clientID: process.env.CLIENT_ID, // ضعه في ملف .env
+    clientSecret: process.env.CLIENT_SECRET, // ضعه في ملف .env
     callbackURL: process.env.CALLBACK_URL || 'http://localhost:3000/auth/discord/callback',
     scope: ['identify', 'guilds']
 }, (accessToken, refreshToken, profile, done) => {
@@ -36,27 +36,12 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 const DATA_FILE = path.join(__dirname, 'dashboard-data.json');
-
-// تحميل البيانات الابتدائية عند تشغيل البوت
-let dashboardData = cache.get('dashboardData');
-if (!dashboardData) {
-    if (fs.existsSync(DATA_FILE)) {
-        try {
-            dashboardData = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-        } catch (e) {
-            dashboardData = null;
-        }
-    }
-    if (!dashboardData) {
-        dashboardData = {
-            embedTitle: 'Welcome to the Server',
-            embedDescription: 'Please read the rules below...',
-            imageUrl: '',
-            buttons: Array.from({ length: 8 }, (_, i) => ({ text: `الزر ${i + 1}`, emoji: '', response: `رد الزر ${i + 1}` }))
-        };
-    }
-    cache.put('dashboardData', dashboardData);
-}
+let dashboardData = cache.get('dashboardData') || {
+    embedTitle: 'Welcome to the Server',
+    embedDescription: 'Please read the rules below...',
+    imageUrl: '',
+    buttons: Array.from({ length: 8 }, (_, i) => ({ text: `الزر ${i + 1}`, emoji: '', response: `رد الزر ${i + 1}` }))
+};
 
 // مسارات التحقق وتسجيل الدخول
 app.get('/login', passport.authenticate('discord'));
@@ -77,6 +62,7 @@ app.get('/', (req, res) => {
         `);
     }
 
+    // تصفية السيرفرات المشتركة بين المستخدم والبوت والتي يمتلك فيها رتبة Administrator
     const userGuilds = req.user.guilds.filter(g => (g.permissions & 0x8) === 0x8);
     const botGuilds = client.guilds.cache;
     const mutualGuilds = userGuilds.filter(g => botGuilds.has(g.id));
@@ -98,6 +84,7 @@ app.get('/', (req, res) => {
             .submit-btn { width: 100%; padding: 15px; background: #248046; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
         </style>
         <script>
+            // كود جافا سكريبت لجلب رومات السيرفر المختار تلقائياً وبدون تحديث الصفحة
             async function loadChannels(guildId) {
                 if(!guildId) return;
                 const res = await fetch('/api/channels/' + guildId);
@@ -131,7 +118,7 @@ app.get('/', (req, res) => {
                 <h2>إعدادات الإيمباد</h2>
                 <div class="form-group"><label>العنوان:</label><input type="text" name="embedTitle" value="${dashboardData.embedTitle}"></div>
                 <div class="form-group"><label>الوصف:</label><textarea name="embedDescription" rows="3">${dashboardData.embedDescription}</textarea></div>
-                <div class="form-group"><label>رابط الصورة المربعة:</label><input type="text" name="imageUrl" value="${dashboardData.imageUrl}"></div>
+                <div class="form-group"><label>رابط الصورة:</label><input type="text" name="imageUrl" value="${dashboardData.imageUrl}"></div>
 
                 <h2>الأزرار الثمانية</h2>
                 ${dashboardData.buttons.map((btn, i) => `
@@ -180,27 +167,17 @@ app.post('/update', async (req, res) => {
     cache.put('dashboardData', dashboardData);
     fs.writeFileSync(DATA_FILE, JSON.stringify(dashboardData, null, 4));
 
+    // إرسال الرسالة
     try {
         const channel = await client.channels.fetch(channelId);
         if (channel) {
-            const embed = new EmbedBuilder()
-                .setTitle(embedTitle || null)
-                .setDescription(embedDescription || null)
-                .setColor('#2f3136');
-            
-            // استخدام Thumbnail لتكون الصورة مربعة ومصاحبة للنص
-            if (imageUrl) embed.setThumbnail(imageUrl);
+            const embed = new EmbedBuilder().setTitle(embedTitle || null).setDescription(embedDescription || null).setColor('#2f3136');
+            if (imageUrl) embed.setImage(imageUrl);
 
-            const row1 = new ActionRowBuilder(); 
-            const row2 = new ActionRowBuilder();
-            
+            const row1 = new ActionRowBuilder(); const row2 = new ActionRowBuilder();
             dashboardData.buttons.forEach((btn, index) => {
                 if (!btn.text) return;
-                const buttonBuilder = new ButtonBuilder()
-                    .setLabel(btn.text)
-                    .setCustomId(`dash_button_${index}`)
-                    .setStyle(ButtonStyle.Secondary);
-                    
+                const buttonBuilder = new ButtonBuilder().setLabel(btn.text).setCustomId(`dash_button_${index}`).setStyle(ButtonStyle.Secondary);
                 if (btn.emoji && btn.emoji.trim() !== '') buttonBuilder.setEmoji(btn.emoji.trim());
                 
                 if (index < 5) row1.addComponents(buttonBuilder);
@@ -218,11 +195,14 @@ app.post('/update', async (req, res) => {
     res.redirect('/');
 });
 
-// معالج ضغطات الأزرار والرد بـ Embed مخفي
+// معالج ضغطات الأزرار
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isButton() || !interaction.customId.startsWith('dash_button_')) return;
-    
     const index = parseInt(interaction.customId.replace('dash_button_', ''));
-    if (!fs.existsSync(DATA_FILE)) return;
-    
-const savedData = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));const btn = savedData.buttons[index];if (btn && btn.response) {const responseEmbed = new EmbedBuilder().setDescription(btn.response).setColor('#2f3136');await interaction.reply({ embeds: [responseEmbed], ephemeral: true });}});client.login(process.env.BOT_TOKEN);app.listen(process.env.PORT || 3000, () => console.log('Dashboard is fully ready!'));
+    const savedData = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+    const btn = savedData.buttons[index];
+    if (btn && btn.response) await interaction.reply({ content: btn.response, ephemeral: true });
+});
+
+client.login(process.env.BOT_TOKEN);
+app.listen(process.env.PORT || 3000, () => console.log('Dashboard is fully ready!'));
