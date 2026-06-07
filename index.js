@@ -1,6 +1,9 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const express = require('express');
+const session = require('express-session');
+const passport = require('passport');
+const DiscordStrategy = require('passport-discord').Strategy;
 const bodyParser = require('body-parser');
 const fs = require('fs');
 const path = require('path');
@@ -8,169 +11,266 @@ const path = require('path');
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
 const app = express();
 
-app.use(bodyParser.urlencoded({ extended: true }));
-
-// مسار ملف حفظ البيانات لحمايتها من الضياع عند الخروج أو عمل ريستارت للبوت
 const DATA_FILE = path.join(__dirname, 'dashboard-data.json');
 
-// البيانات الافتراضية للداش بورد (8 أزرار)
-let dashboardData = {
-    channelId: '',
-    embedTitle: 'Welcome to the Server',
-    embedDescription: 'Please read the rules below carefully...',
-    imageUrl: '',
-    buttons: Array.from({ length: 8 }, (_, i) => ({
-        text: `Button ${i + 1}`,
-        emoji: '',
-        response: `This is the hidden response for button ${i + 1}`
-    }))
-};
+// البيانات الافتراضية مقسمة حسب السيرفر
+let dashboardData = {};
 
-// دالة جلب البيانات المخزنة من الملف عند تشغيل البوت
 if (fs.existsSync(DATA_FILE)) {
     try {
-        const fileData = fs.readFileSync(DATA_FILE, 'utf8');
-        dashboardData = JSON.parse(fileData);
-        console.log("Database values loaded successfully.");
+        dashboardData = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+        console.log("تم تحميل قاعدة البيانات بنجاح.");
     } catch (e) {
-        console.error("Error loading database file:", e);
+        console.error("خطأ في تحميل ملف البيانات:", e);
     }
 }
 
-// تصميم واجهة الـ Dashboard (HTML مضبوط بالكامل بدون تداخل لغوي)
-const getHtmlTemplate = (data) => `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Bot Dashboard Panel</title>
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #2f3136; color: #fff; padding: 20px; }
-        .container { max-width: 800px; margin: 0 auto; background: #36393f; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
-        h1, h2 { text-align: center; color: #5865F2; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; color: #b9bbbe; }
-        input[type="text"], textarea { width: 100%; padding: 10px; border-radius: 4px; border: 1px solid #202225; background: #40444b; color: #fff; box-sizing: border-box; font-size: 14px; }
-        input:focus, textarea:focus { border-color: #5865F2; outline: none; }
-        .button-row { border: 1px solid #4f545c; padding: 15px; margin-bottom: 15px; border-radius: 5px; background: #2f3136; }
-        .submit-btn { width: 100%; padding: 15px; background: #248046; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; font-weight: bold; transition: background 0.2s; }
-        .submit-btn:hover { background: #1a6535; }
-        h3 { margin-top: 0; color: #5865F2; border-bottom: 1px solid #4f545c; padding-bottom: 5px;}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Control Dashboard Panel</h1>
-        <form method="POST" action="/update">
-            <h2>Main Embed Settings</h2>
-            <div class="form-group">
-                <label>Target Text Channel ID:</label>
-                <input type="text" name="channelId" value="${data.channelId || ''}" required placeholder="Example: 123456789012345678">
-            </div>
-            <div class="form-group">
-                <label>Embed Title:</label>
-                <input type="text" name="embedTitle" value="${data.embedTitle || ''}">
-            </div>
-            <div class="form-group">
-                <label>Embed Description:</label>
-                <textarea name="embedDescription" rows="4">${data.embedDescription || ''}</textarea>
-            </div>
-            <div class="form-group">
-                <label>Large Image URL:</label>
-                <input type="text" name="imageUrl" value="${data.imageUrl || ''}" placeholder="Paste direct image link here">
-            </div>
+// إعداد الجلسات وتسجيل الدخول
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(session({
+    secret: 'secret-key-dashboard',
+    resave: false,
+    saveUninitialized: false
+}));
 
-            <h2>Interactive Buttons (8 Slots Available)</h2>
-            ${data.buttons.map((btn, i) => `
-            <div class="button-row">
-                <h3>Button Configuration Slot #${i + 1}</h3>
-                <div class="form-group">
-                    <label>Button Label Text:</label>
-                    <input type="text" name="btn_text_${i}" value="${btn.text || ''}">
-                </div>
-                <div class="form-group">
-                    <label>Server Custom Emoji ID (Leave empty if none):</label>
-                    <input type="text" name="btn_emoji_${i}" value="${btn.emoji || ''}" placeholder="Example: 123456789012345678">
-                </div>
-                <div class="form-group">
-                    <label>Hidden Response (Will show inside an Embed upon clicking):</label>
-                    <textarea name="btn_resp_${i}" rows="3" placeholder="Write the rule or response text here...">${btn.response || ''}</textarea>
-                </div>
-            </div>
-            `).join('')}
-            
-            <button type="submit" class="submit-btn">Save Configurations & Dispatch Embed system 🚀</button>
-        </form>
-    </div>
-</body>
-</html>
-`;
+app.use(passport.initialize());
+app.use(passport.session());
 
-// مسارات واجهة الويب (Express Routes)
-app.get('/', (req, res) => {
-    res.send(getHtmlTemplate(dashboardData));
+passport.serializeUser((user, done) => done(null, user));
+passport.deserializeUser((obj, done) => done(null, obj));
+
+passport.use(new DiscordStrategy({
+    clientID: process.env.CLIENT_ID,         // معرف البوت من موقع المطورين
+    clientSecret: process.env.CLIENT_SECRET, // السر الخاص بالبوت من موقع المطورين
+    callbackURL: process.env.CALLBACK_URL,   // رابط العودة مثل http://localhost:10000/auth/discord/callback
+    scope: ['identify', 'guilds']
+}, (accessToken, refreshToken, profile, done) => {
+    return done(null, profile);
+}));
+
+// حماية المسارات
+function checkAuth(req, res, next) {
+    if (req.isAuthenticated()) return next();
+    res.redirect('/login');
+}
+
+// مسارات تسجيل الدخول
+app.get('/login', passport.authenticate('discord'));
+app.get('/auth/discord/callback', passport.authenticate('discord', { failureRedirect: '/' }), (req, res) => {
+    res.redirect('/dashboard');
 });
 
-app.post('/update', async (req, res) => {
-    // تحديث الذاكرة بالبيانات الجديدة من الفورم
-    dashboardData.channelId = req.body.channelId;
-    dashboardData.embedTitle = req.body.embedTitle;
-    dashboardData.embedDescription = req.body.embedDescription;
-    dashboardData.imageUrl = req.body.imageUrl;
+app.get('/logout', (req, res) => {
+    req.logout(() => { res.redirect('/'); });
+});
+
+// الصفحة الرئيسية (تسجيل الدخول)
+app.get('/', (req, res) => {
+    if (req.isAuthenticated()) return res.redirect('/dashboard');
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="ar" dir="rtl">
+    <head>
+        <meta charset="UTF-8">
+        <title>تسجيل الدخول - لوحة التحكم</title>
+        <style>
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #2f3136; color: #fff; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+            .login-box { background: #36393f; padding: 40px; border-radius: 8px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+            h1 { color: #5865F2; margin-bottom: 20px; }
+            .btn { background: #5865F2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; transition: 0.2s; }
+            .btn:hover { background: #4752C4; }
+        </style>
+    </head>
+    <body>
+        <div class="login-box">
+            <h1>لوحة تحكم البوت الاحترافية</h1>
+            <p>يرجى تسجيل الدخول بحساب الديسكورد الخاص بك للمتابعة</p><br><br>
+            <a class="btn" href="/login">تسجيل الدخول عبر ديسكورد 🚀</a>
+        </div>
+    </body>
+    </html>
+    `);
+});
+
+// صفحة لوحة التحكم وتحديد السيرفر
+app.get('/dashboard', checkAuth, (req, res) => {
+    // تصفية السيرفرات التي يمتلك فيها المستخدم صلاحية Administrator (0x8)
+    const adminGuilds = req.user.guilds.filter(guild => (guild.permissions & 0x8) === 0x8);
+    const selectedGuildId = req.query.guildId || (adminGuilds[0] ? adminGuilds[0].id : null);
+
+    if (!selectedGuildId) {
+        return res.send('<h2 style="color:white; text-align:center; margin-top:50px;">عذراً، يجب أن تكون مسؤولاً (Admin) في سيرفر واحد على الأقل للتحكم بالبوت.</h2>');
+    }
+
+    // جلب بيانات السيرفر المحدد أو وضع بيانات افتراضية
+    if (!dashboardData[selectedGuildId]) {
+        dashboardData[selectedGuildId] = {
+            channelId: '',
+            embedTitle: 'أهلاً بكم في السيرفر',
+            embedDescription: 'الرجاء قراءة القوانين بعناية الموضحة أدناه...',
+            imageUrl: '',
+            buttons: Array.from({ length: 8 }, (_, i) => ({
+                text: `زر رقم ${i + 1}`,
+                emoji: '',
+                response: `هذا هو الرد المخفي الخاص بالزر رقم ${i + 1}`
+            }))
+        };
+    }
+
+    const data = dashboardData[selectedGuildId];
+
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="ar" dir="rtl">
+    <head>
+        <meta charset="UTF-8">
+        <title>لوحة التحكم</title>
+        <style>
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #2f3136; color: #fff; padding: 20px; }
+            .container { max-width: 800px; margin: 0 auto; background: #36393f; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+            h1, h2 { text-align: center; color: #5865F2; }
+            .form-group { margin-bottom: 15px; }
+            label { display: block; margin-bottom: 5px; font-weight: bold; color: #b9bbbe; }
+            input[type="text"], textarea, select { width: 100%; padding: 10px; border-radius: 4px; border: 1px solid #202225; background: #40444b; color: #fff; box-sizing: border-box; font-size: 14px; }
+            input:focus, textarea:focus, select:focus { border-color: #5865F2; outline: none; }
+            .button-row { border: 1px solid #4f545c; padding: 15px; margin-bottom: 15px; border-radius: 5px; background: #2f3136; }
+            .submit-btn { width: 100%; padding: 15px; background: #248046; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; font-weight: bold; transition: background 0.2s; }
+            .submit-btn:hover { background: #1a6535; }
+            h3 { margin-top: 0; color: #5865F2; border-bottom: 1px solid #4f545c; padding-bottom: 5px;}
+            .user-bar { display: flex; justify-content: space-between; align-items: center; background: #202225; padding: 10px; border-radius: 5px; margin-bottom: 20px; }
+            .logout-btn { color: #f04747; text-decoration: none; font-weight: bold; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="user-bar">
+                <span>مرحباً، <b>${req.user.username}</b></span>
+                <a href="/logout" class="logout-btn">تسجيل الخروج</a>
+            </div>
+            
+            <h1>شاشة التحكم بالإمبد والردود تفاعلية</h1>
+            
+            <div class="form-group">
+                <label>اختر السيرفر المراد التحكم به:</label>
+                <select onchange="window.location.href='/dashboard?guildId=' + this.value">
+                    ${adminGuilds.map(g => `<option value="${g.id}" ${g.id === selectedGuildId ? 'selected' : ''}>${g.name}</option>`).join('')}
+                </select>
+            </div>
+
+            <form method="POST" action="/update?guildId=${selectedGuildId}">
+                <h2>إعدادات رسالة الإمبد الرئيسية</h2>
+                <div class="form-group">
+                    <label>معرف روم النصية المستهدفة (Channel ID):</label>
+                    <input type="text" name="channelId" value="${data.channelId || ''}" required placeholder="مثال: 123456789012345678">
+                </div>
+                <div class="form-group">
+                    <label>عنوان الرسالة (Title):</label>
+                    <input type="text" name="embedTitle" value="${data.embedTitle || ''}">
+                </div>
+                <div class="form-group">
+                    <label>وصف الرسالة الرئيسي (Description):</label>
+                    <textarea name="embedDescription" rows="4">${data.embedDescription || ''}</textarea>
+                </div>
+                <div class="form-group">
+                    <label>رابط الصورة الكبيرة بالإمبد (Image URL):</label>
+                    <input type="text" name="imageUrl" value="${data.imageUrl || ''}" placeholder="ضع رابط الصورة المباشر هنا">
+                </div>
+
+                <h2>تخصيص الأزرار التفاعلية (8 أزرار متوفرة)</h2>
+                ${data.buttons.map((btn, i) => `
+                <div class="button-row">
+                    <h3>إعدادات الزر رقم #${i + 1}</h3>
+                    <div class="form-group">
+                        <label>النص الظاهر على الزر:</label>
+                        <input type="text" name="btn_text_${i}" value="${btn.text || ''}">
+                    </div>
+                    <div class="form-group">
+                        <label>معرف الإيموجي الخاص بالسيرفر (اتركه فارغاً إذا لم ترغب بإيموجي):</label>
+                        <input type="text" name="btn_emoji_${i}" value="${btn.emoji || ''}" placeholder="مثال: 123456789012345678">
+                    </div>
+                    <div class="form-group">
+                        <label>الرد المخفي (سيظهر داخل إمبد منفصل ومخفي للشخص الذي ضغط عليه):</label>
+                        <textarea name="btn_resp_${i}" rows="3" placeholder="اكتب هنا القوانين أو الرد المخصص...">${btn.response || ''}</textarea>
+                    </div>
+                </div>
+                `).join('')}
+                
+                <button type="submit" class="submit-btn">حفظ التعديلات وإرسال الإمبد فوراً للسيرفر 🚀</button>
+            </form>
+        </div>
+    </body>
+    </html>
+    `);
+});
+
+// استقبال التحديثات من الفورم وحفظها بناءً على السيرفر المحدد
+app.post('/update', checkAuth, async (req, res) => {
+    const guildId = req.query.guildId;
+    if (!guildId) return res.redirect('/dashboard');
+
+    if (!dashboardData[guildId]) {
+        dashboardData[guildId] = { buttons: Array.from({ length: 8 }, () => ({})) };
+    }
+
+    dashboardData[guildId].channelId = req.body.channelId;
+    dashboardData[guildId].embedTitle = req.body.embedTitle;
+    dashboardData[guildId].embedDescription = req.body.embedDescription;
+    dashboardData[guildId].imageUrl = req.body.imageUrl;
 
     for (let i = 0; i < 8; i++) {
-        dashboardData.buttons[i].text = req.body[`btn_text_${i}`];
-        dashboardData.buttons[i].emoji = req.body[`btn_emoji_${i}`];
-        dashboardData.buttons[i].response = req.body[`btn_resp_${i}`];
+        if (!dashboardData[guildId].buttons[i]) dashboardData[guildId].buttons[i] = {};
+        dashboardData[guildId].buttons[i].text = req.body[`btn_text_${i}`];
+        dashboardData[guildId].buttons[i].emoji = req.body[`btn_emoji_${i}`];
+        dashboardData[guildId].buttons[i].response = req.body[`btn_resp_${i}`];
     }
 
-    // حفظ البيانات فوراً في ملف الحفظ الخارجي لحمايتها من الضياع عند إعادة الدخول
     try {
         fs.writeFileSync(DATA_FILE, JSON.stringify(dashboardData, null, 4), 'utf8');
-        console.log("Changes written to dashboard-data.json successfully.");
+        console.log(`تم حفظ التعديلات الخاصة بالسيرفر ${guildId} بنجاح.`);
     } catch (e) {
-        console.error("Failed to write data file:", e);
+        console.error("فشل في كتابة ملف الحفظ المحلي:", e);
     }
 
-    // إرسال الإيمباد والأزرار لـ ديسكورد
-    await sendEmbedToDiscord();
-    
-    res.redirect('/');
+    await sendEmbedToDiscord(guildId);
+    res.redirect('/dashboard?guildId=' + guildId);
 });
 
-// دالة معالجة وإرسال الإيمباد بالأزرار المتناسقة
-async function sendEmbedToDiscord() {
+// دالة إرسال الإمبد والأزرار بشكل متناسق مع الصورة المرفقة
+async function sendEmbedToDiscord(guildId) {
     try {
-        const channel = await client.channels.fetch(dashboardData.channelId);
-        if (!channel) return console.log("Target channel not found or bot lacks permission.");
+        const data = dashboardData[guildId];
+        if (!data || !data.channelId) return;
 
-        // بناء الإيمباد العريض المتناسق مع حجم الصورة الكاملة
+        const channel = await client.channels.fetch(data.channelId);
+        if (!channel) return console.log("الروم المطلوبة غير موجودة أو البوت يفتقر للصلاحيات.");
+
         const embed = new EmbedBuilder()
-            .setTitle(dashboardData.embedTitle || null)
-            .setDescription(dashboardData.embedDescription || null)
+            .setTitle(data.embedTitle || null)
+            .setDescription(data.embedDescription || null)
             .setColor('#2f3136');
 
-        if (dashboardData.imageUrl) {
-            embed.setImage(dashboardData.imageUrl);
+        if (data.imageUrl) {
+            embed.setImage(data.imageUrl);
         }
 
-        // بناء صفوف الأزرار (أقصى حد لديسكورد هو 5 أزرار بالسطر الواحد، لذا الـ 8 تتقسم تلقائياً على سطرين)
+        // إنشاء صفوف للأزرار (الحد الأقصى لديسكورد هو 5 أزرار بالسطر الواحد)
         const row1 = new ActionRowBuilder();
         const row2 = new ActionRowBuilder();
 
-        dashboardData.buttons.forEach((btn, index) => {
-            if (!btn.text || btn.text.trim() === '') return; // تخطي الزر إذا تم مسح النص الخاص به
+        data.buttons.forEach((btn, index) => {
+            if (!btn.text || btn.text.trim() === '') return;
 
             const buttonBuilder = new ButtonBuilder()
                 .setLabel(btn.text)
-                .setCustomId(`dash_button_${index}`)
+                .setCustomId(`dash_button_${guildId}_${index}`) // ربط السيرفر بالزر تفادياً للتداخل
                 .setStyle(ButtonStyle.Secondary);
 
             if (btn.emoji && btn.emoji.trim() !== '') {
                 buttonBuilder.setEmoji(btn.emoji.trim());
             }
 
-            if (index < 5) {
+            // توزيع متناسق للأزرار (مثال: 4 في السطر الأول و4 في السطر الثاني ليتطابق مع صورتك)
+            if (index < 4) {
                 row1.addComponents(buttonBuilder);
             } else {
                 row2.addComponents(buttonBuilder);
@@ -181,52 +281,59 @@ async function sendEmbedToDiscord() {
         if (row1.components.length > 0) components.push(row1);
         if (row2.components.length > 0) components.push(row2);
 
-        // إرسال الرسالة الكاملة للروم المحددة
         await channel.send({ embeds: [embed], components: components });
-        console.log("Embed panel deployed successfully.");
+        console.log("تم إرسال لوحة الإمبد بنجاح للسيرفر.");
 
     } catch (error) {
-        console.error("Error executing discord embed dispatch:", error);
+        console.error("حدث خطأ أثناء محاولة إرسال رسالة الإمبد المحدثة:", error);
     }
 }
 
-// التفاعل عند قيام العضو بالضغط على أي زر بالسيرفر
+// معالجة التفاعل والرد الخفي في إمبد حصري
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isButton()) return;
 
     if (interaction.customId.startsWith('dash_button_')) {
-        const index = parseInt(interaction.customId.replace('dash_button_', ''));
-        
+        // استخراج معرف السيرفر وفهرس الزر من الـ Custom ID للزر المكبوس
+        const parts = interaction.customId.replace('dash_button_', '').split('_');
+        const guildId = parts[0];
+        const index = parseInt(parts[1], 10);
+
         try {
-            // قراءة أحدث الردود المبرمجة من ملف الحفظ
             if (fs.existsSync(DATA_FILE)) {
                 const savedData = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-                const buttonConfig = savedData.buttons[index];
+                const serverData = savedData[guildId];
 
-                if (buttonConfig && buttonConfig.response) {
-                    // بناء إيمباد الرد المخفي الأنيق لتنسيق الكتابة
-                    const responseEmbed = new EmbedBuilder()
-                        .setDescription(buttonConfig.response)
-                        .setColor('#5865F2');
+                if (serverData && serverData.buttons && serverData.buttons[index]) {
+                    const buttonConfig = serverData.buttons[index];
 
-                    // إرسال الرد المطور بشكل مخفي (Ephemeral) ليراه من ضغط على الزر فقط
-                    await interaction.reply({ embeds: [responseEmbed], ephemeral: true });
-                } else {
-                    await interaction.reply({ content: 'No mapped system configuration for this button slot.', ephemeral: true });
+                    if (buttonConfig && buttonConfig.response) {
+                        // بناء الإمبد الخاص بالرد المخفي كما طلبت تماماً وبألوان منسقة
+                        const responseEmbed = new EmbedBuilder()
+                            .setDescription(buttonConfig.response)
+                            .setColor('#5865F2');
+
+                        // إرسال الرد بشكل مخفي بالكامل (Ephemeral)
+                        await interaction.reply({ embeds: [responseEmbed], ephemeral: true });
+                    } else {
+                        await interaction.reply({ content: 'لا يوجد رد مبرمج لهذا الزر حالياً.', ephemeral: true });
+                    }
                 }
             }
         } catch (err) {
-            console.error("Interaction runtime failure:", err);
+            console.error("فشل في معالجة تفاعل الزر:", err);
         }
     }
 });
 
-// تشغيل الويب سيرفر للبورت المتغير لـ Render
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => {
-    console.log(`Dashboard is perfectly alive on port: ${PORT}`);
+client.once('ready', () => {
+    console.log(`تم تسجيل الدخول بنجاح باسم البوت: ${client.user.tag}!`);
 });
 
-// تشغيل البوت عبر متغير البيئة الآمن بـ راندر
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => {
+    console.log(`لوحة التحكم تعمل وتستمع حالياً على البورت: ${PORT}`);
+});
+
 const TOKEN = process.env.BOT_TOKEN;
 client.login(TOKEN);
