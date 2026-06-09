@@ -245,15 +245,124 @@ bot.on(Events.InteractionCreate, async interaction => {
             await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
         }
     }
+      // 1️⃣ التعامل مع أمر السلاش لإرسال الإيمباد والمنيو
+    if (interaction.isChatInputCommand()) {
+        if (interaction.commandName === 'setup-menu') {
+            
+            // بناء الإيمباد (تستطيع وضع الوصف والرابط للصورة التي تريدها هنا)
+            const menuEmbed = new EmbedBuilder()
+                .setTitle('⚙️ | لوحة التحكم بالهوية الشخصية')
+                .setDescription('مرحباً بك في لوحة التحكم. يمكنك الآن تعديل اسمك المستعار داخل السيرفر مباشرة بالنقر على القائمة المنسدلة أدناه واختيار الخدمة المطلوبة.')
+                .setColor('#6366f1')
+                .setImage('https://imgur.com'); // ضع رابط صورتك الافتراضية هنا
+
+            // بناء المنيو (القائمة المنسدلة) مع إمكانية إضافة إيموجي السيرفر
+            // ملاحظة: للإيموجي المخصص من السيرفر ضع الـ ID الخاص به مثل '123456789012345678'
+            const selectMenu = new StringSelectMenuBuilder()
+                .setCustomId('identity_select_menu')
+                .setPlaceholder('اختر إجـراءً من القائمة...')
+                .addOptions(
+                    new StringSelectMenuOptionBuilder()
+                        .setLabel('تغيير الاسم المستعار')
+                        .setDescription('اضغط هنا  لتغيير اسمك  ')
+                        .setValue('change_nickname_option')
+                        .setEmoji('1513531974235717773') // يمكنك استبداله بـ ID إيموجي السيرفر المخصص، مثال: '123456789012345678'
+                );
+
+            const row = new ActionRowBuilder().addComponents(selectMenu);
+
+            await interaction.reply({ content: '✅ تم إرسال القائمة بنجاح.', ephemeral: true });
+            await interaction.channel.send({ embeds: [menuEmbed], components: [row] });
+        }
+    }
+
+    // 2️⃣ التعامل مع اختيار العضو من المنيو (فتح الـ Modal)
+    if (interaction.isStringSelectMenu()) {
+        if (interaction.customId === 'identity_select_menu') {
+            const selectedValue = interaction.values[0];
+
+            if (selectedValue === 'change_nickname_option') {
+                // بناء النافذة المنبثقة (Modal)
+                const modal = new ModalBuilder()
+                    .setCustomId('change_name_modal')
+                    .setTitle('تغيير الاسم المستعار');
+
+                // حقل الإدخال للاسم الجديد
+                const nameInput = new TextInputBuilder()
+                    .setCustomId('new_name_input')
+                    .setLabel("اكتب الاسم الجديد الذي ترغب به:")
+                    .setStyle(TextInputStyle.Short)
+                    .setPlaceholder('مثال: أحمد ..')
+                    .setRequired(true)
+                    .setMaxLength(32); // أقصى حد لأسماء الديسكورد 32 حرفاً
+
+                const firstActionRow = new ActionRowBuilder().addComponents(nameInput);
+                modal.addComponents(firstActionRow);
+
+                // إظهار المودال للمستخدم
+                await interaction.showModal(modal);
+            }
+        }
+    }
+
+    // 3️⃣ التعامل مع استقبال البيانات من الـ Modal وتغيير الاسم
+    if (interaction.isModalSubmit()) {
+        if (interaction.customId === 'change_name_modal') {
+            const newName = interaction.fields.getTextInputValue('new_name_input');
+
+            try {
+                // تغيير اسم العضو داخل السيرفر
+                await interaction.member.setNickname(newName);
+
+                const successEmbed = new EmbedBuilder()
+                    .setDescription(`✅ تم تغيير اسمك المستعار في السيرفر بنجاح إلى: **${newName}**`)
+                    .setColor('#22c55e');
+
+                await interaction.reply({ embeds: [successEmbed], ephemeral: true });
+
+            } catch (error) {
+                console.error(error);
+                
+                // رسالة خطأ في حال لم يمتلك البوت صلاحية تغيير الاسم (مثل أن تكون رتبة العضو أعلى من البوت أو صاحب السيرفر)
+                const errorEmbed = new EmbedBuilder()
+                    .setDescription('❌ فشل تغيير الاسم. تأكد أن رتبة البوت أعلى من رتبتك وأن البوت يمتلك صلاحية `Manage Nicknames`.')
+                    .setColor('#ef4444');
+
+                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+            }
+        }
+    }
 });
 
 
 
 
-bot.login(process.env.DISCORD_TOKEN);
-// استبدل السطر الأخير بهذا التعديل ليتوافق مع الإصدار الجديد:
-bot.once('clientReady', (readyClient) => {
-    console.log(`🤖 Bot connected as ${readyClient.user.tag}`);
+const { REST, Routes, SlashCommandBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+
+bot.once('ready', async () => {
+    console.log(`🤖 Bot connected as ${bot.user.tag}`);
+
+    // تسجيل أمر السلاش
+    const commands = [
+        new SlashCommandBuilder()
+            .setName('setup-menu')
+            .setDescription('إرسال إيمباد منيو تغيير الاسم والإعدادات')
+    ].map(command => command.toJSON());
+
+    const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
+
+    try {
+        console.log('🔄 جاري تحديث أوامر السلاش (/) ...');
+        await rest.put(
+            Routes.applicationCommands(bot.user.id),
+            { body: commands }
+        );
+        console.log('✅ تم تسجيل أوامر السلاش بنجاح!');
+    } catch (error) {
+        console.error('❌ خطأ أثناء تسجيل الأوامر:', error);
+    }
+
+    // تشغيل سيرفر الـ Dashboard
     app.listen(process.env.PORT || 3000, () => {
         console.log(`🌐 Dashboard online on port ${process.env.PORT || 3000}`);
     });
