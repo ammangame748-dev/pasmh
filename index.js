@@ -336,13 +336,18 @@ bot.on(Events.InteractionCreate, async interaction => {
 
 
 
-
 const { REST, Routes, SlashCommandBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 
-bot.once('ready', async () => {
-    console.log(`🤖 Bot connected as ${bot.user.tag}`);
+// 1️⃣ تشغيل سيرفر الـ Dashboard فوراً ومستقلاً حتى لا يقفل موقع Render
+app.listen(process.env.PORT || 3000, () => {
+    console.log(`🌐 Dashboard online on port ${process.env.PORT || 3000}`);
+});
 
-    // تسجيل أمر السلاش
+// 2️⃣ حدث اتصال البوت وتسجيل أمر السلاش تلقائياً
+bot.once('ready', async (readyClient) => {
+    console.log(`🤖 Bot connected as ${readyClient.user.tag}`);
+
+    // بناء أمر السلاش
     const commands = [
         new SlashCommandBuilder()
             .setName('setup-menu')
@@ -354,16 +359,16 @@ bot.once('ready', async () => {
     try {
         console.log('🔄 جاري تحديث أوامر السلاش (/) ...');
         await rest.put(
-            Routes.applicationCommands(bot.user.id),
+            Routes.applicationCommands(readyClient.user.id),
             { body: commands }
         );
         console.log('✅ تم تسجيل أوامر السلاش بنجاح!');
     } catch (error) {
         console.error('❌ خطأ أثناء تسجيل الأوامر:', error);
     }
+});
 
-    // تشغيل سيرفر الـ Dashboard
-    app.listen(process.env.PORT || 3000, () => {
-        console.log(`🌐 Dashboard online on port ${process.env.PORT || 3000}`);
-    });
+// 3️⃣ تشغيل البوت مع معالجة الأخطاء
+bot.login(process.env.DISCORD_TOKEN).catch(err => {
+    console.error("❌ فشل تسجيل دخول البوت! تحقق من الـ DISCORD_TOKEN في الـ Environment Variables:", err);
 });
