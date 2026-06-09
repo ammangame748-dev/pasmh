@@ -209,6 +209,7 @@ app.get('/', (req, res) => {
 bot.on(Events.InteractionCreate, async interaction => {
     
     // 1️⃣ التعامل مع أمر السلاش لإنشاء الروم وإرسال الإيمباد والمنيو الاحترافي
+    // 1️⃣ التعامل مع أمر السلاش لإرسال الإيمباد والمنيو في نفس الروم مع دعم رفع الصور مباشرة
     if (interaction.isChatInputCommand()) {
         if (interaction.commandName === 'setup-menu') {
             
@@ -216,48 +217,28 @@ bot.on(Events.InteractionCreate, async interaction => {
             await interaction.deferReply({ ephemeral: true });
 
             try {
-                const guild = interaction.guild;
-                const roomName = '💬〡𝙲𝚑𝚊𝚝'; // اسم الروم بالخط الفخم المطلوب
-
-                // جلب القيم المدخلة من خيارات أمر السلاش (الوصف، الصورة، الإيموجي)
+                // جلب القيم المدخلة من خيارات أمر السلاش (الوصف، ملف الصورة، الإيموجي)
                 const customDescription = interaction.options.getString('description') || 'مرحباً بك في نظام تعديل الهوية الرقمية. يمكنك الآن تغيير اسمك المستعار داخل السيرفر ليظهر بشكل أنيق أمام الأعضاء، اضغط على القائمة المنسدلة أدناه للبدء.';
-                const customImage = interaction.options.getString('image_url');
+                const imageAttachment = interaction.options.getAttachment('image_file');
                 const customEmoji = interaction.options.getString('emoji_id') || '💬';
-
-                // البحث إذا كانت الروم موجودة مسبقاً بنفس الاسم لتفادي التكرار
-                let targetChannel = guild.channels.cache.find(ch => ch.name === roomName && ch.type === 0);
-
-                // إذا لم تكن موجودة، يقوم البوت بإنشائها فوراً وصعق الصلاحيات لمنع كتابة الأعضاء
-                if (!targetChannel) {
-                    targetChannel = await guild.channels.create({
-                        name: roomName,
-                        type: 0, // Text Channel
-                        topic: 'روم مخصصة لتغيير الأسماء المستعارة للأعضاء بشكل تلقائي.',
-                        permissionOverwrites: [
-                            {
-                                id: guild.id,
-                                allow: ['ViewChannel', 'ReadMessageHistory'],
-                                deny: ['SendMessage'] // لمنع الرسائل العادية لتبقى الروم نظيفة
-                            }
-                        ]
-                    });
-                }
 
                 // بناء الإيمباد الناري المتناسق
                 const menuEmbed = new EmbedBuilder()
-                    .setTitle('💬〡𝙲𝚑𝚊𝚝 - تغيير الاسم المستعار')
+                    .setTitle('تغيير الاسم المستعار')
                     .setDescription(customDescription)
                     .setColor('#6366f1');
 
-                // إذا قام المستخدم بوضع رابط صورة صالح يتم إرفاقه بالمنشور
-                if (customImage && (customImage.startsWith('http://') || customImage.startsWith('https://'))) {
-                    menuEmbed.setImage(customImage);
+                let sendPayload = { embeds: [menuEmbed], components: [] };
+
+                // إذا قام المستخدم برفع ملف صورة، نقوم بإرفاقها مباشرة داخل الإيمباد
+                if (imageAttachment) {
+                    menuEmbed.setImage(imageAttachment.url);
                 }
 
                 // بناء المنيو وتطبيق الإيموجي المخصص الممرر من الأمر
                 const selectMenu = new StringSelectMenuBuilder()
                     .setCustomId('identity_select_menu')
-                    .setPlaceholder('💬 〡 اضغط هنا لتغيير اسمك المستعار ...')
+                    .setPlaceholder(' اضغط هنا لتغيير اسمك المستعار ...')
                     .addOptions(
                         new StringSelectMenuOptionBuilder()
                             .setLabel('𝙲𝚑𝚊𝚗𝚐𝚎 𝙽𝚒𝚌𝚔𝚗𝚊𝚖𝚎')
@@ -267,19 +248,21 @@ bot.on(Events.InteractionCreate, async interaction => {
                     );
 
                 const row = new ActionRowBuilder().addComponents(selectMenu);
+                sendPayload.components.push(row);
 
-                // إرسال المنشور المتكامل داخل الروم
-                await targetChannel.send({ embeds: [menuEmbed], components: [row] });
+                // إرسال المنشور المتكامل داخل نفس الروم التي نُفذ فيها الأمر حالياً
+                await interaction.channel.send(sendPayload);
 
-                // تحديث الرد المخفي وتوجيه الإداري للروم بنجاح
-                await interaction.editReply({ content: `🔥 تم إعداد الإيمباد والنظام بنجاح داخل الروم: ${targetChannel}` });
+                // تحديث الرد المخفي للعضو بنجاح العملية
+                await interaction.editReply({ content: `🔥 تم إرسال إيمباد المنيو بنجاح داخل هذه الروم!` });
 
             } catch (error) {
                 console.error(error);
-                await interaction.editReply({ content: '❌ حدث خطأ أثناء محاولة إنشاء الروم أو إرسال المنيو. تأكد من امتلاك البوت لصلاحية `Manage Channels`.' });
+                await interaction.editReply({ content: '❌ حدث خطأ غير متوقع أثناء محاولة إرسال المنيو. تأكد من امتلاك البوت لكامل صلاحيات القراءة والإرسال في هذه الروم.' });
             }
         }
     }
+
 
     // 2️⃣ التعامل مع اختيار العضو من المنيو (فتح الـ Modal لتغيير الاسم)
     if (interaction.isStringSelectMenu()) {
@@ -404,7 +387,8 @@ bot.once('clientReady', async (readyClient) => {
     } catch (error) {
         console.error('❌ خطأ أثناء تسجيل الأوامر المطورة:', error);
     }
-});
+}); 
+
 
 // 3️⃣ تسجيل الدخول للبوت بشكل آمن بالخلفية
 bot.login(process.env.DISCORD_TOKEN).catch(err => {
