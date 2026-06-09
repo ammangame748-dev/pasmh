@@ -1,4 +1,20 @@
-const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, Events } = require('discord.js');
+const { 
+    Client, 
+    GatewayIntentBits, 
+    EmbedBuilder, 
+    ActionRowBuilder, 
+    ButtonBuilder, 
+    ButtonStyle, 
+    Events,
+    REST, 
+    Routes, 
+    SlashCommandBuilder, 
+    StringSelectMenuBuilder, 
+    StringSelectMenuOptionBuilder, 
+    ModalBuilder, 
+    TextInputBuilder, 
+    TextInputStyle 
+} = require('discord.js');
 const express = require('express');
 const session = require('express-session');
 const multer = require('multer');
@@ -10,7 +26,7 @@ const bot = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
 });
 
-// إعداد مجلد رفع الصور
+// إعداد مجلد رفع الصور للـ Dashboard
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         const dir = './uploads';
@@ -31,27 +47,22 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use('/uploads', express.static('uploads'));
 
-// استبدل قسم الـ session القديم بهذا القسم المحدث تماماً:
 app.use(session({
     secret: process.env.SESSION_SECRET || 'a-very-strong-fallback-secret-key-998877',
     resave: false,
     saveUninitialized: false,
     cookie: {
-        secure: false, // اتركه false ليعمل على نطاق ريندر الافتراضي بدون مشاكل
-        maxAge: 24 * 60 * 60 * 1000 // مدة الجلسة يوم كامل
+        secure: false,
+        maxAge: 24 * 60 * 60 * 1000
     }
 }));
 
-
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
-
 app.get('/login', (req, res) => {
     const clientId = process.env.CLIENT_ID;
     const redirectUri = encodeURIComponent(process.env.REDIRECT_URI);
-
-    const discordUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=identify%20guilds`;
-
+    const discordUrl = `https://discord.com{clientId}&redirect_uri=${redirectUri}&response_type=code&scope=identify%20guilds`;
     res.redirect(discordUrl);
 });
 
@@ -60,7 +71,7 @@ app.get('/auth/discord/callback', async (req, res) => {
     if (!code) return res.send('فشل تسجيل الدخول!');
 
     try {
-        const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
+        const tokenResponse = await fetch('https://discord.com', {
             method: 'POST',
             body: new URLSearchParams({
                 client_id: process.env.CLIENT_ID,
@@ -69,16 +80,12 @@ app.get('/auth/discord/callback', async (req, res) => {
                 code: code,
                 redirect_uri: process.env.REDIRECT_URI
             }),
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            }
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
         });
         const tokens = await tokenResponse.json();
 
-        const guildsResponse = await fetch('https://discord.com/api/users/@me/guilds', {
-            headers: {
-                Authorization: `Bearer ${tokens.access_token}`
-            }
+        const guildsResponse = await fetch('https://discord.com', {
+            headers: { Authorization: `Bearer ${tokens.access_token}` }
         });
         const guilds = await guildsResponse.json();
 
@@ -123,7 +130,6 @@ app.post('/dashboard/:guildId/save', upload.single('image'), async (req, res) =>
 
     let buttonsData = [];
     for (let i = 0; i < 6; i++) {
-        // فحص إذا كان حقل الاسم معبأ وليس فارغاً
         if (req.body[`btn_label_${i}`] && req.body[`btn_label_${i}`].trim() !== '') {
             buttonsData.push({
                 label: req.body[`btn_label_${i}`],
@@ -132,7 +138,6 @@ app.post('/dashboard/:guildId/save', upload.single('image'), async (req, res) =>
             });
         }
     }
-
 
     serverSettings[guildId] = {
         channelId: req.body.channelId,
@@ -146,7 +151,6 @@ app.post('/dashboard/:guildId/save', upload.single('image'), async (req, res) =>
         const channel = await bot.channels.fetch(req.body.channelId);
         if (!channel) return res.send('لم يتم العثور على الروم، يرجى التحقق من الـ ID.');
 
-        // 1. بناء إيمباد الماب الفخم الملون باللون البنفسجي النيون الاحترافي
         const embed = new EmbedBuilder()
             .setTitle(req.body.title)
             .setDescription(req.body.description)
@@ -159,19 +163,16 @@ app.post('/dashboard/:guildId/save', upload.single('image'), async (req, res) =>
             files.push({ attachment: serverSettings[guildId].imagePath, name: fileName });
         }
 
-        // 🔲 بناء الأزرار وتوزيعها تلقائياً (كل 3 أزرار في سطر ليطابق التصميم)
         let components = [];
         if (buttonsData.length > 0) {
             let currentRow = new ActionRowBuilder();
 
             buttonsData.forEach((btnInfo, index) => {
-                // إذا امتلأ الصف بـ 3 أزرار، نقوم بإنشاء صف جديد لترتيبها بشكل متناسق
                 if (index > 0 && index % 3 === 0) {
                     components.push(currentRow);
                     currentRow = new ActionRowBuilder();
                 }
 
-                // إنشاء زر حقيقي بلون رمادي أنيق مطابق للصورة
                 const button = new ButtonBuilder()
                     .setCustomId(`custom_btn_${guildId}_${index}`)
                     .setLabel(btnInfo.label)
@@ -184,20 +185,10 @@ app.post('/dashboard/:guildId/save', upload.single('image'), async (req, res) =>
                 currentRow.addComponents(button);
             });
 
-            // إضافة الصف المتبقي إن وُجد
-            if (currentRow.components.length > 0) {
-                components.push(currentRow);
-            }
+            if (currentRow.components.length > 0) components.push(currentRow);
         }
 
-
-        // 3. الإرسال المباشر والآمن عن طريق البوت لحل المشاكل نهائياً
-        await channel.send({
-            embeds: [embed],
-            components: components,
-            files: files
-        });
-
+        await channel.send({ embeds: [embed], components: components, files: files });
         res.send(`<script>alert("تم حفظ الإعدادات وإرسال الماب والمنيو بنجاح!"); window.location.href="/dashboard/${guildId}";</script>`);
 
     } catch (error) {
@@ -210,108 +201,119 @@ app.get('/logout', (req, res) => {
     req.session.destroy();
     res.redirect('/login');
 });
-// إضافة مسار الصفحة الرئيسية لتحويل المستخدم تلقائياً لصفحة تسجيل الدخول
+
 app.get('/', (req, res) => {
     res.redirect('/login');
 });
-
-// 🔄 التفاعل السليم مع ضغطات الأزرار والرد بإيمباد مخفي وخاص للعضو
+// 🔄 حدث موحد لمعالجة جميع أنواع التفاعلات منعاً للتعارض وبأعلى سرعة استجابة
 bot.on(Events.InteractionCreate, async interaction => {
-    // التحقق أن التفاعل القادم هو ضغطة زر وليس منيو أو أمر
-    if (!interaction.isButton()) return;
-
-    const customId = interaction.customId;
-    if (customId.startsWith('custom_btn_')) {
-        const parts = customId.split('_');
-        const guildId = parts[2];
-        const btnIndex = parseInt(parts[3]);
-
-        const settings = serverSettings[guildId];
-        if (settings && settings.buttons && settings.buttons[btnIndex]) {
-            const replyMessage = settings.buttons[btnIndex].reply;
-            const btnLabel = settings.buttons[btnIndex].label;
-
-            // بناء الإيمباد المخفي الخاص بالرد
-            const replyEmbed = new EmbedBuilder()
-                .setTitle(`📌 | ${btnLabel}`)
-                .setDescription(replyMessage)
-                .setColor('#2f3136'); // لون داكن فخم ومتناسق
-
-            await interaction.reply({ embeds: [replyEmbed], ephemeral: true });
-        } else {
-            const errorEmbed = new EmbedBuilder()
-                .setDescription('❌ حدث خطأ، لم يتم العثور على بيانات هذا الزر.')
-                .setColor('#ef4444');
-            await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
-        }
-    }
-      // 1️⃣ التعامل مع أمر السلاش لإرسال الإيمباد والمنيو
+    
+    // 1️⃣ التعامل مع أمر السلاش لإنشاء الروم وإرسال الإيمباد والمنيو الاحترافي
     if (interaction.isChatInputCommand()) {
         if (interaction.commandName === 'setup-menu') {
             
-            // بناء الإيمباد (تستطيع وضع الوصف والرابط للصورة التي تريدها هنا)
-            const menuEmbed = new EmbedBuilder()
-                .setTitle('⚙️ | لوحة التحكم بالهوية الشخصية')
-                .setDescription('مرحباً بك في لوحة التحكم. يمكنك الآن تعديل اسمك المستعار داخل السيرفر مباشرة بالنقر على القائمة المنسدلة أدناه واختيار الخدمة المطلوبة.')
-                .setColor('#6366f1')
-                .setImage('https://imgur.com'); // ضع رابط صورتك الافتراضية هنا
+            // رد مبدئي سريع جداً لحجز وقت الاستجابة ومنع ظهور رسالة الخطأ
+            await interaction.deferReply({ ephemeral: true });
 
-            // بناء المنيو (القائمة المنسدلة) مع إمكانية إضافة إيموجي السيرفر
-            // ملاحظة: للإيموجي المخصص من السيرفر ضع الـ ID الخاص به مثل '123456789012345678'
-            const selectMenu = new StringSelectMenuBuilder()
-                .setCustomId('identity_select_menu')
-                .setPlaceholder('اختر إجـراءً من القائمة...')
-                .addOptions(
-                    new StringSelectMenuOptionBuilder()
-                        .setLabel('تغيير الاسم المستعار')
-                        .setDescription('اضغط هنا  لتغيير اسمك  ')
-                        .setValue('change_nickname_option')
-                        .setEmoji('1513531974235717773') // يمكنك استبداله بـ ID إيموجي السيرفر المخصص، مثال: '123456789012345678'
-                );
+            try {
+                const guild = interaction.guild;
+                const roomName = '💬〡𝙲𝚑𝚊𝚝'; // اسم الروم بالخط الفخم المطلوب
 
-            const row = new ActionRowBuilder().addComponents(selectMenu);
+                // جلب القيم المدخلة من خيارات أمر السلاش (الوصف، الصورة، الإيموجي)
+                const customDescription = interaction.options.getString('description') || 'مرحباً بك في نظام تعديل الهوية الرقمية. يمكنك الآن تغيير اسمك المستعار داخل السيرفر ليظهر بشكل أنيق أمام الأعضاء، اضغط على القائمة المنسدلة أدناه للبدء.';
+                const customImage = interaction.options.getString('image_url');
+                const customEmoji = interaction.options.getString('emoji_id') || '💬';
 
-            await interaction.reply({ content: '✅ تم إرسال القائمة بنجاح.', ephemeral: true });
-            await interaction.channel.send({ embeds: [menuEmbed], components: [row] });
+                // البحث إذا كانت الروم موجودة مسبقاً بنفس الاسم لتفادي التكرار
+                let targetChannel = guild.channels.cache.find(ch => ch.name === roomName && ch.type === 0);
+
+                // إذا لم تكن موجودة، يقوم البوت بإنشائها فوراً وصعق الصلاحيات لمنع كتابة الأعضاء
+                if (!targetChannel) {
+                    targetChannel = await guild.channels.create({
+                        name: roomName,
+                        type: 0, // Text Channel
+                        topic: 'روم مخصصة لتغيير الأسماء المستعارة للأعضاء بشكل تلقائي.',
+                        permissionOverwrites: [
+                            {
+                                id: guild.id,
+                                allow: ['ViewChannel', 'ReadMessageHistory'],
+                                deny: ['SendMessage'] // لمنع الرسائل العادية لتبقى الروم نظيفة
+                            }
+                        ]
+                    });
+                }
+
+                // بناء الإيمباد الناري المتناسق
+                const menuEmbed = new EmbedBuilder()
+                    .setTitle('💬〡𝙲𝚑𝚊𝚝 - تغيير الاسم المستعار')
+                    .setDescription(customDescription)
+                    .setColor('#6366f1');
+
+                // إذا قام المستخدم بوضع رابط صورة صالح يتم إرفاقه بالمنشور
+                if (customImage && (customImage.startsWith('http://') || customImage.startsWith('https://'))) {
+                    menuEmbed.setImage(customImage);
+                }
+
+                // بناء المنيو وتطبيق الإيموجي المخصص الممرر من الأمر
+                const selectMenu = new StringSelectMenuBuilder()
+                    .setCustomId('identity_select_menu')
+                    .setPlaceholder('💬 〡 اضغط هنا لتغيير اسمك المستعار ...')
+                    .addOptions(
+                        new StringSelectMenuOptionBuilder()
+                            .setLabel('𝙲𝚑𝚊𝚗𝚐𝚎 𝙽𝚒𝚌𝚔𝚗𝚊𝚖𝚎')
+                            .setDescription('اضغط لفتح نافذة كتابة اسمك الجديد')
+                            .setValue('change_nickname_option')
+                            .setEmoji(customEmoji.trim())
+                    );
+
+                const row = new ActionRowBuilder().addComponents(selectMenu);
+
+                // إرسال المنشور المتكامل داخل الروم
+                await targetChannel.send({ embeds: [menuEmbed], components: [row] });
+
+                // تحديث الرد المخفي وتوجيه الإداري للروم بنجاح
+                await interaction.editReply({ content: `🔥 تم إعداد الإيمباد والنظام بنجاح داخل الروم: ${targetChannel}` });
+
+            } catch (error) {
+                console.error(error);
+                await interaction.editReply({ content: '❌ حدث خطأ أثناء محاولة إنشاء الروم أو إرسال المنيو. تأكد من امتلاك البوت لصلاحية `Manage Channels`.' });
+            }
         }
     }
 
-    // 2️⃣ التعامل مع اختيار العضو من المنيو (فتح الـ Modal)
+    // 2️⃣ التعامل مع اختيار العضو من المنيو (فتح الـ Modal لتغيير الاسم)
     if (interaction.isStringSelectMenu()) {
         if (interaction.customId === 'identity_select_menu') {
             const selectedValue = interaction.values[0];
 
             if (selectedValue === 'change_nickname_option') {
-                // بناء النافذة المنبثقة (Modal)
                 const modal = new ModalBuilder()
                     .setCustomId('change_name_modal')
-                    .setTitle('تغيير الاسم المستعار');
+                    .setTitle('💬〡𝙲𝚑𝚊𝚝 - 𝙽𝚒𝚌𝚔𝚗𝚊𝚖𝚎');
 
-                // حقل الإدخال للاسم الجديد
                 const nameInput = new TextInputBuilder()
                     .setCustomId('new_name_input')
-                    .setLabel("اكتب الاسم الجديد الذي ترغب به:")
+                    .setLabel("اكتب اسمك الجديد هنا:")
                     .setStyle(TextInputStyle.Short)
-                    .setPlaceholder('مثال: أحمد ..')
+                    .setPlaceholder('مثال: 𝙰𝚑𝚖𝚎𝚍 ..')
                     .setRequired(true)
-                    .setMaxLength(32); // أقصى حد لأسماء الديسكورد 32 حرفاً
+                    .setMaxLength(32); 
 
                 const firstActionRow = new ActionRowBuilder().addComponents(nameInput);
                 modal.addComponents(firstActionRow);
 
-                // إظهار المودال للمستخدم
+                // إظهار المودال مباشرة للمستخدم
                 await interaction.showModal(modal);
             }
         }
     }
 
-    // 3️⃣ التعامل مع استقبال البيانات من الـ Modal وتغيير الاسم
+    // 3️⃣ استقبال الاسم الجديد المكتوب داخل المودال وتطبيقه على حساب العضو بالسيرفر
     if (interaction.isModalSubmit()) {
         if (interaction.customId === 'change_name_modal') {
             const newName = interaction.fields.getTextInputValue('new_name_input');
 
             try {
-                // تغيير اسم العضو داخل السيرفر
                 await interaction.member.setNickname(newName);
 
                 const successEmbed = new EmbedBuilder()
@@ -322,53 +324,89 @@ bot.on(Events.InteractionCreate, async interaction => {
 
             } catch (error) {
                 console.error(error);
-                
-                // رسالة خطأ في حال لم يمتلك البوت صلاحية تغيير الاسم (مثل أن تكون رتبة العضو أعلى من البوت أو صاحب السيرفر)
                 const errorEmbed = new EmbedBuilder()
-                    .setDescription('❌ فشل تغيير الاسم. تأكد أن رتبة البوت أعلى من رتبتك وأن البوت يمتلك صلاحية `Manage Nicknames`.')
+                    .setDescription('❌ فشل تغيير الاسم. تأكد أن رتبة البوت أعلى من رتبتك في القائمة، وأن لديه صلاحية `Manage Nicknames`.')
                     .setColor('#ef4444');
 
                 await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
             }
         }
     }
+
+    // 4️⃣ معالجة ضغطات الأزرار الستة القادمة من الـ Dashboard الأصلي
+    if (interaction.isButton()) {
+        const customId = interaction.customId;
+        if (customId.startsWith('custom_btn_')) {
+            const parts = customId.split('_');
+            const guildId = parts[2];
+            const btnIndex = parseInt(parts[3]);
+
+            const settings = serverSettings[guildId];
+            if (settings && settings.buttons && settings.buttons[btnIndex]) {
+                const replyMessage = settings.buttons[btnIndex].reply;
+                const btnLabel = settings.buttons[btnIndex].label;
+
+                const replyEmbed = new EmbedBuilder()
+                    .setTitle(`📌 | ${btnLabel}`)
+                    .setDescription(replyMessage)
+                    .setColor('#2f3136');
+
+                await interaction.reply({ embeds: [replyEmbed], ephemeral: true });
+            } else {
+                const errorEmbed = new EmbedBuilder()
+                    .setDescription('❌ حدث خطأ، لم يتم العثور على بيانات هذا الزر.')
+                    .setColor('#ef4444');
+                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+            }
+        }
+    }
 });
-
-
-
-const { REST, Routes, SlashCommandBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
-
-// 1️⃣ تشغيل سيرفر الـ Dashboard فوراً ومستقلاً حتى لا يقفل موقع Render
+// 1️⃣ تشغيل سيرفر الـ Dashboard فوراً ومستقلاً حتى لا يقفل موقع Render نهائياً
 app.listen(process.env.PORT || 3000, () => {
     console.log(`🌐 Dashboard online on port ${process.env.PORT || 3000}`);
 });
 
-// 2️⃣ حدث اتصال البوت وتسجيل أمر السلاش تلقائياً
-bot.once('ready', async (readyClient) => {
+// 2️⃣ حدث اتصال البوت وبناء أمر السلاش الفخم بكامل خياراته المتطورة
+bot.once('clientReady', async (readyClient) => {
     console.log(`🤖 Bot connected as ${readyClient.user.tag}`);
 
-    // بناء أمر السلاش
+    // بناء أمر السلاش مع إضافة الخيارات (الوصف، الصورة، الإيموجي) ليتحكم بها الإداري مباشرة
     const commands = [
         new SlashCommandBuilder()
             .setName('setup-menu')
             .setDescription('إرسال إيمباد منيو تغيير الاسم والإعدادات')
+            .addStringOption(option => 
+                option.setName('description')
+                    .setDescription('اكتب الوصف المخصص الذي سيظهر داخل الإيمباد الفخم')
+                    .setRequired(false)
+            )
+            .addStringOption(option => 
+                option.setName('image_url')
+                    .setDescription('ضع رابط الصورة المباشر (رابط ينتهي بـ .png أو .jpg) لتظهر داخل الإيمباد')
+                    .setRequired(false)
+            )
+            .addStringOption(option => 
+                option.setName('emoji_id')
+                    .setDescription('ضع أيدي (ID) إيموجي مخصص من سيرفرك أو إيموجي عادي للمنيو')
+                    .setRequired(false)
+            )
     ].map(command => command.toJSON());
 
     const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 
     try {
-        console.log('🔄 جاري تحديث أوامر السلاش (/) ...');
+        console.log('🔄 جاري تحديث أوامر السلاش (/) مع الخيارات الجديدة المخصصة...');
         await rest.put(
             Routes.applicationCommands(readyClient.user.id),
             { body: commands }
         );
-        console.log('✅ تم تسجيل أوامر السلاش بنجاح!');
+        console.log('✅ تم تسجيل أمر السلاش والمميزات النارية بنجاح تام!');
     } catch (error) {
-        console.error('❌ خطأ أثناء تسجيل الأوامر:', error);
+        console.error('❌ خطأ أثناء تسجيل الأوامر المطورة:', error);
     }
 });
 
-// 3️⃣ تشغيل البوت مع معالجة الأخطاء
+// 3️⃣ تسجيل الدخول للبوت بشكل آمن بالخلفية
 bot.login(process.env.DISCORD_TOKEN).catch(err => {
-    console.error("❌ فشل تسجيل دخول البوت! تحقق من الـ DISCORD_TOKEN في الـ Environment Variables:", err);
+    console.error("❌ فشل تسجيل دخول البوت! تحقق من الـ DISCORD_TOKEN في الـ Environment Variables الخاص بـ Render:", err);
 });
