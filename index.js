@@ -349,23 +349,23 @@ app.listen(process.env.PORT || 3000, () => {
     console.log(`🌐 Dashboard online on port ${process.env.PORT || 3000}`);
 });
 
-// 2️⃣ حدث اتصال البوت وبناء أمر السلاش الفخم بكامل خياراته المتطورة
+// 2️⃣ حدث اتصال البوت وبناء أمر السلاش الفخم بكامل خياراته المتطورة (دعم رفع ملفات الصور)
 bot.once('clientReady', async (readyClient) => {
     console.log(`🤖 Bot connected as ${readyClient.user.tag}`);
 
-    // بناء أمر السلاش مع إضافة الخيارات (الوصف، الصورة، الإيموجي) ليتحكم بها الإداري مباشرة
+    // بناء أمر السلاش مع إضافة خيار الـ Attachment لرفع الملفات مباشرة من الجهاز
     const commands = [
         new SlashCommandBuilder()
             .setName('setup-menu')
-            .setDescription('إرسال إيمباد منيو تغيير الاسم والإعدادات')
+            .setDescription('إرسال إيمباد منيو تغيير الاسم والإعدادات في الروم الحالية')
             .addStringOption(option => 
                 option.setName('description')
                     .setDescription('اكتب الوصف المخصص الذي سيظهر داخل الإيمباد الفخم')
                     .setRequired(false)
             )
-            .addStringOption(option => 
-                option.setName('image_url')
-                    .setDescription('ضع رابط الصورة المباشر (رابط ينتهي بـ .png أو .jpg) لتظهر داخل الإيمباد')
+            .addAttachmentOption(option => 
+                option.setName('image_file')
+                    .setDescription('ارفع ملف الصورة مباشرة من جهازك (PNG, JPG, GIF) لتظهر داخل الإيمباد')
                     .setRequired(false)
             )
             .addStringOption(option => 
@@ -378,7 +378,7 @@ bot.once('clientReady', async (readyClient) => {
     const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 
     try {
-        console.log('🔄 جاري تحديث أوامر السلاش (/) مع الخيارات الجديدة المخصصة...');
+        console.log('🔄 جاري تحديث أوامر السلاش (/) مع ميزة رفع الملفات المباشرة...');
         await rest.put(
             Routes.applicationCommands(readyClient.user.id),
             { body: commands }
@@ -387,7 +387,7 @@ bot.once('clientReady', async (readyClient) => {
     } catch (error) {
         console.error('❌ خطأ أثناء تسجيل الأوامر المطورة:', error);
     }
-}); 
+});
 
 
 // 3️⃣ تسجيل الدخول للبوت بشكل آمن بالخلفية
