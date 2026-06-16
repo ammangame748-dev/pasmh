@@ -372,10 +372,7 @@ bot.on(Events.InteractionCreate, async interaction => {
         }
     }
 });
-// 1️⃣ تشغيل سيرفر الـ Dashboard فوراً ومستقلاً حتى لا يقفل موقع Render نهائياً
-app.listen(process.env.PORT || 3000, () => {
-    console.log(`🌐 Dashboard online on port ${process.env.PORT || 3000}`);
-});
+
 
 // 2️⃣ حدث اتصال البوت وبناء أمر السلاش الفخم بكامل خياراته المتطورة (دعم رفع ملفات الصور)
 bot.once('clientReady', async (readyClient) => {
