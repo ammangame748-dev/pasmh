@@ -201,7 +201,35 @@ app.get('/logout', (req, res) => {
     req.session.destroy();
     res.redirect('/login');
 });
+app.get('/', (req, res) => {
+    // سيرد السيرفر بصفحة بسيطة جداً تحتوي على صورة أو نص خفيف
+    res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Pasmh Bot Status</title>
+            <style>
+                body { background-color: #0f111a; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: white; font-family: sans-serif; }
+                .status-container { text-align: center; }
+                img { max-width: 150px; border-radius: 50%; box-shadow: 0 0 20px rgba(99, 102, 241, 0.5); }
+                h1 { margin-top: 15px; font-size: 20px; color: #6366f1; }
+            </style>
+        </head>
+        <body>
+            <div class="status-container">
+                <img src="https://discordapp.com" alt="Bot Logo">
+                <h1>Pasmh Bot is Active 🚀</h1>
+            </div>
+        </body>
+        </html>
+    `);
+});
 
+// أضف كود الاستماع للمنفذ هنا ليعمل على Render بشكل صحيح
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`[WEB] Server is running on port ${PORT}`);
+});
 app.get('/', (req, res) => {
     res.redirect('/login');
 });
